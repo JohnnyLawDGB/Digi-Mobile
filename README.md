@@ -1,40 +1,42 @@
-# Digi-Mobile
+# Digi-Mobile – Truncated DigiByte Core for Android
 
-Digi-Mobile packages DigiByte Core v8.26 as a pruned Android-friendly node.
-It keeps consensus and P2P behavior identical to upstream while focusing on
-cross-compiling, packaging, and operating a lightweight daemon on Android
-devices.
+Digi-Mobile packages DigiByte Core as a pruned, Android-friendly full node build. The project keeps consensus and P2P behavior identical to upstream DigiByte Core while focusing on pruning-friendly defaults, cross-compiling, and Android packaging so devices can run a lightweight daemon and CLI.
 
-## Repository layout
-- `core/` – Vendored DigiByte Core source (unchanged consensus/P2P).
-- `android/` – NDK/CMake toolchain helpers, JNI/Gradle placeholders, and build artifacts.
-- `scripts/` – Convenience wrappers for fetching sources and driving Android builds.
-- `config/` – Example runtime configs tuned for pruned mobile nodes.
-- `docs/` – Build, deployment, and pruning guidance.
+## Status
 
-## Quick start
-1. Fetch/pin the DigiByte Core sources:
+**VERY EARLY, EXPERIMENTAL.** Expect rough edges while the Android build, pruning defaults, and packaging flow stabilize.
+
+## Quickstart
+
+1. Clone the repository:
    ```bash
-   ./scripts/fetch-core.sh
+   git clone https://github.com/your-org/Digi-Mobile.git
+   cd Digi-Mobile
    ```
-2. Build for your target (defaults: `ARCH=arm64-v8a`, `API=29`):
+2. Initialize the vendored DigiByte Core tree and prerequisites:
    ```bash
-   ANDROID_NDK_ROOT=/path/to/ndk ARCH=arm64-v8a API=29 \
-     ./scripts/build-android.sh
+   ./scripts/setup-core.sh
    ```
-3. Bundle binaries and configs for deployment:
+3. Build Android artifacts (defaults: `ARCH=arm64-v8a`, `API=29`):
    ```bash
-   ARCH=arm64-v8a ./scripts/make-android-rootfs.sh
+   ./scripts/build-android.sh
    ```
-4. Push/run on device; see `docs/ANDROID-INSTALL.md` for adb/Termux steps.
+4. Read more details in the documentation:
+   - [`docs/OVERVIEW.md`](docs/OVERVIEW.md)
+   - [`docs/CORE-SETUP.md`](docs/CORE-SETUP.md)
+   - [`android/README-ANDROID-BUILD.md`](android/README-ANDROID-BUILD.md)
+   - [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md)
 
-## Pruned defaults
-Runtime defaults live in `config/android-pruned.conf`, targeting ~2 GiB of
-pruned storage with mobile-friendly networking and cache settings. Adjust
-paths (e.g., app-private datadir) and cache sizes to fit your device. Pruning
-does not alter consensus; it only bounds local disk usage.
+## Design Principles
 
-## Notes
-- No protocol changes: DigiByte Core consensus and network behavior remain upstream.
-- GUI is disabled; only daemon/CLI/tx utilities are built for Android.
-- For architecture or integration details, consult `docs/ANDROID-BUILD.md` and `docs/PRUNING.md`.
+- Minimal changes to DigiByte Core: keep consensus and P2P logic untouched while pinning to a known release.
+- Focus on pruning and Android packaging: prioritize storage-bounded node operation, cross-compiling, and deployable Android artifacts.
+
+## Contributing
+
+Issues and roadmap items live on the [issue tracker](https://github.com/your-org/Digi-Mobile/issues).
+
+Good starter areas include:
+- JNI bridge improvements to expose more DigiByte Core functionality to Android.
+- Android app wrapper and UX around the packaged daemon/CLI.
+- CI enhancements for reproducible Android builds and pruned configuration validation.
