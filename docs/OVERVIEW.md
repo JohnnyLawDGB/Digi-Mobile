@@ -2,6 +2,15 @@
 
 Digi-Mobile packages DigiByte Core for Android builds and related tooling. The project keeps a pinned DigiByte Core release alongside Android-specific build scripts and configuration.
 
+## Docs Index
+
+- [`CORE-SETUP.md`](./CORE-SETUP.md): Initialize the DigiByte Core source tree and prerequisites.
+- [`CONFIGURATION.md`](./CONFIGURATION.md): Runtime settings tuned for pruned mobile nodes.
+- [`ANDROID-BUILD.md`](./ANDROID-BUILD.md): Android build flow and architecture notes.
+- [`android/README-ANDROID-BUILD.md`](../android/README-ANDROID-BUILD.md): Android-side toolchain specifics and Gradle/NDK tips.
+- [`ANDROID-INSTALL.md`](./ANDROID-INSTALL.md): Steps to push binaries and run on devices or Termux.
+- [`PRUNING.md`](./PRUNING.md): Details on pruned node behavior and storage targets.
+
 ## Key directories
 
 - `core/`: DigiByte Core source tracked as a submodule pinned to v8.26.
