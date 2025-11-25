@@ -32,6 +32,11 @@ Digi-Mobile turns a spare Android phone or tablet into a **pruned DigiByte node*
 3. Once running, the phone quietly helps validate DigiByte blocks and transactions in the background.
 4. The technical friend should read the technical docs first and make sure both of you understand the risks.
 
+## If you have a technical friend helping you
+- Ask them to plug your device in and run `./setup.sh` from the repository root.
+- That wizard auto-detects the device, builds or downloads the binary, and starts the node with friendly prompts.
+- You can still follow along in this guide to understand what is happening, but they do the commands for you.
+
 ## Concepts in simple terms
 - **Full node vs light wallet:** A full node checks the rules itself and shares data with others; a light wallet trusts someone else to do most of the checking.
 - **Pruned node:** Keeps recent blockchain data and throws away older blocks locally to save space, while still checking new activity.

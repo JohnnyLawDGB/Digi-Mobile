@@ -30,6 +30,7 @@ _Status: Experimental / Early._ Digi-Mobile is a truncated/pruned DigiByte node 
 - `docs/`: Project documentation for Android builds, setup steps, and repository orientation.
 
 ## Getting Started
+- Prefer the one-command wizard first: see [`README.md`](../README.md#one-command-setup-beginner-friendly) and run `./setup.sh`.
 - Initialize the DigiByte Core submodule following [`docs/CORE-SETUP.md`](./CORE-SETUP.md).
 - Run the helper script [`scripts/setup-core.sh`](../scripts/setup-core.sh) to ensure the `core/` tree is initialized and on the expected tag.
 - Review [`CONFIGURATION.md`](CONFIGURATION.md) to pick a pruned profile before pushing to devices.

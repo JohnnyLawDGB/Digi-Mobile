@@ -7,6 +7,15 @@ Digi-Mobile packages DigiByte Core as a pruned, Android-friendly full node build
 - Read the quick guide: [`docs/GETTING-STARTED-NONTECH.md`](docs/GETTING-STARTED-NONTECH.md) for a non-technical overview and examples of good vs. bad uses.
 - **Disclaimer:** Experimental software with no guarantees; do not use for serious amounts of money.
 
+## One-Command Setup (Beginner-Friendly)
+- **Hobby/testing only. Not for serious funds.**
+- Plug in an Android device with USB debugging enabled and run:
+  ```bash
+  ./setup.sh
+  ```
+- The wizard auto-detects your device, checks the Android NDK, initializes the `core/` submodule if missing, and either builds or uses prebuilt binaries.
+- After it finishes, use `./status.sh` to check the node and see [`docs/GETTING-STARTED-NONTECH.md`](docs/GETTING-STARTED-NONTECH.md) for what to expect.
+
 ## Status
 
 **VERY EARLY, EXPERIMENTAL.** Expect rough edges while the Android build, pruning defaults, and packaging flow stabilize.
