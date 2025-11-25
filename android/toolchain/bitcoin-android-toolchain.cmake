@@ -1,0 +1,8 @@
+# Minimal CMake toolchain file for building DigiByte Core components on Android
+set(CMAKE_SYSTEM_NAME Android)
+set(CMAKE_ANDROID_ARCH_ABI ${ANDROID_ARCH_ABI})
+set(CMAKE_ANDROID_NDK ${ANDROID_NDK})
+set(CMAKE_ANDROID_STL_TYPE c++_static)
+set(CMAKE_ANDROID_API ${ANDROID_API})
+set(CMAKE_SYSTEM_VERSION ${ANDROID_API})
+set(CMAKE_ANDROID_NDK_TOOLCHAIN_VERSION clang)
