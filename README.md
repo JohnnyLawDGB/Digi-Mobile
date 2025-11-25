@@ -2,6 +2,11 @@
 
 Digi-Mobile packages DigiByte Core as a pruned, Android-friendly full node build. The project keeps consensus and P2P behavior identical to upstream DigiByte Core while focusing on pruning-friendly defaults, cross-compiling, and Android packaging so devices can run a lightweight daemon and CLI.
 
+## Plain-English Start Here
+- Digi-Mobile is for **testing and hobby use** on spare Android devices to help the DigiByte network.
+- Read the quick guide: [`docs/GETTING-STARTED-NONTECH.md`](docs/GETTING-STARTED-NONTECH.md) for a non-technical overview and examples of good vs. bad uses.
+- **Disclaimer:** Experimental software with no guarantees; do not use for serious amounts of money.
+
 ## Status
 
 **VERY EARLY, EXPERIMENTAL.** Expect rough edges while the Android build, pruning defaults, and packaging flow stabilize.
