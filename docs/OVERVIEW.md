@@ -12,6 +12,7 @@ _Status: Experimental / Early._ Digi-Mobile is a truncated/pruned DigiByte node 
 - adb from Android platform-tools for device workflows.
 
 ## Docs Index
+- [`GETTING-STARTED-NONTECH.md`](./GETTING-STARTED-NONTECH.md): Plain-English guide for non-technical helpers and users.
 - [`CORE-SETUP.md`](./CORE-SETUP.md): Initialize the DigiByte Core source tree and prerequisites.
 - [`CONFIGURATION.md`](./CONFIGURATION.md): Runtime settings tuned for pruned mobile nodes.
 - [`ANDROID-BUILD.md`](./ANDROID-BUILD.md): Android build flow and architecture notes.
