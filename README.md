@@ -32,9 +32,13 @@ Digi-Mobile packages DigiByte Core as a pruned, Android-friendly full node build
 - Minimal changes to DigiByte Core: keep consensus and P2P logic untouched while pinning to a known release.
 - Focus on pruning and Android packaging: prioritize storage-bounded node operation, cross-compiling, and deployable Android artifacts.
 
+## Code Quality & Hardening
+
+Scripts and docs aim to be self-explanatory with clear headers, environment notes, and conservative defaults for small devices. Contributions that improve clarity, comments, and safety checks are welcome—see [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md).
+
 ## Contributing
 
-Issues and roadmap items live on the [issue tracker](https://github.com/your-org/Digi-Mobile/issues).
+Issues and roadmap items live on the [issue tracker](https://github.com/your-org/Digi-Mobile/issues). See [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) for expectations and style notes.
 
 Good starter areas include:
 - JNI bridge improvements to expose more DigiByte Core functionality to Android.

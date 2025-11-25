@@ -1,31 +1,36 @@
 cmake_minimum_required(VERSION 3.22)
 project(DigiByteAndroid C CXX)
 
-# This top-level CMake project orchestrates cross-compilation of the DigiByte Core
-# daemon for Android. It expects the DigiByte Core sources to live in ../core and
-# builds the daemon from the core/src subtree. GUI components and host-only
-# tooling are explicitly disabled to keep the build Android-friendly.
+# Experimental, pruned DigiByte Core build for Android. This CMake project wraps
+# the upstream Autotools build so Android developers can cross-compile the
+# daemon easily. It expects DigiByte Core sources under ../core and intentionally
+# disables GUI/tests/manual pages to keep the mobile footprint small. Consensus
+# logic is unchanged.
 
 include(ExternalProject)
 
+# ABIs can be overridden via -DANDROID_ABI=... or ARCH/ABI env vars passed to the
+# helper scripts. Defaults favor 64-bit devices but 32-bit is supported for
+# legacy hardware.
 if(NOT DEFINED ANDROID_ABI)
   set(ANDROID_ABI "arm64-v8a" CACHE STRING "Android ABI to target")
 endif()
 set_property(CACHE ANDROID_ABI PROPERTY STRINGS "arm64-v8a" "armeabi-v7a")
+# TODO: Add support for additional ABIs (x86/x86_64) once tested.
 
+# Allow API level overrides for newer/older devices.
 if(NOT DEFINED ANDROID_PLATFORM)
   set(ANDROID_PLATFORM 24 CACHE STRING "Android API level")
 endif()
 
-set(DIGIBYTE_CORE_SOURCE_DIR "${CMAKE_CURRENT_LIST_DIR}/../core")
+# Core source location is a cache variable for easier overrides when testing
+# alternate trees. By default it points to ../core relative to this file.
+set(DIGIBYTE_CORE_SOURCE_DIR "${CMAKE_CURRENT_LIST_DIR}/../core" CACHE PATH "Path to DigiByte Core sources")
 set(DIGIBYTE_CORE_BUILD_DIR "${CMAKE_BINARY_DIR}/core-build-${ANDROID_ABI}")
 set(DIGIBYTE_CORE_PREFIX "${CMAKE_BINARY_DIR}/android-prefix/${ANDROID_ABI}")
 
-# DigiByte Core sources are expected in ../core, with the daemon living under
-# core/src/. CMake drives the existing Autotools project rather than mirroring
-# its source layout.
 if(NOT EXISTS "${DIGIBYTE_CORE_SOURCE_DIR}/src")
-  message(FATAL_ERROR "DigiByte Core sources not found at ${DIGIBYTE_CORE_SOURCE_DIR}")
+  message(FATAL_ERROR "DigiByte Core sources not found at ${DIGIBYTE_CORE_SOURCE_DIR}. Run scripts/setup-core.sh")
 endif()
 
 set(DGB_HOST_TRIPLE "")
@@ -37,16 +42,24 @@ else()
   message(FATAL_ERROR "Unsupported ANDROID_ABI: ${ANDROID_ABI}")
 endif()
 
+# Common flags aim for small binaries; GUI and bench/test targets are disabled to
+# shorten Android build times.
 set(DGB_COMMON_CFLAGS "-fPIC -Os -ffunction-sections -fdata-sections")
 set(DGB_COMMON_LDFLAGS "-Wl,--gc-sections")
 
-# Optional: enable link-time optimisation. Some NDK/Clang revisions may need
-# additional configuration, so this is off by default.
 option(DGB_ENABLE_LTO "Enable LTO for DigiByte Core" OFF)
 if(DGB_ENABLE_LTO)
   list(APPEND DGB_COMMON_CFLAGS "-flto")
   list(APPEND DGB_COMMON_LDFLAGS "-flto")
 endif()
+
+option(DGB_ENABLE_ZMQ "Enable ZMQ interface" OFF)
+set(DGB_ZMQ_ARG "--disable-zmq")
+if(DGB_ENABLE_ZMQ)
+  set(DGB_ZMQ_ARG "--enable-zmq")
+endif()
+
+set(DGB_EXTRA_CONFIGURE_ARGS "" CACHE STRING "Additional configure flags passed to DigiByte Core")
 
 set(DGB_CONFIGURE_ENV
   "CC=${CMAKE_C_COMPILER}"
@@ -70,8 +83,9 @@ set(DGB_CONFIGURE_ARGS
   "--disable-gui-tests"
   "--without-gui"
   "--with-miniupnpc=no"
-  "--disable-zmq"
+  "${DGB_ZMQ_ARG}"
   "--enable-reduce-exports"
+  ${DGB_EXTRA_CONFIGURE_ARGS}
 )
 
 if(DEFINED CMAKE_SYSROOT AND NOT CMAKE_SYSROOT STREQUAL "")
@@ -85,6 +99,7 @@ endif()
 
 find_program(DGB_MAKE_PROGRAM NAMES make gmake REQUIRED)
 
+message(STATUS "[Digi-Mobile] Experimental Android build. Not production-ready.")
 ExternalProject_Add(digibyte_core
   SOURCE_DIR "${DIGIBYTE_CORE_SOURCE_DIR}"
   BINARY_DIR "${DIGIBYTE_CORE_BUILD_DIR}"

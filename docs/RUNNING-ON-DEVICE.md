@@ -1,12 +1,16 @@
-# Running DigiByte Core daemon on Android devices
+# Running Digi-Mobile on Android devices
 
-This document describes a lightweight ADB-based workflow for pushing and running the DigiByte Core daemon on an Android device or emulator. It is intended as a low-level test harness and not yet integrated into an Android application.
+_Status: Experimental / Early._ Digi-Mobile provides adb-based helpers for pushing and running a truncated/pruned DigiByte node on Android. These scripts are intended for hobby testing, not production apps.
 
-## Prerequisites
+## Who this is for
+- Developers verifying Android builds on physical devices or emulators.
+- Power users comfortable with adb and command-line workflows.
 
-- Android platform-tools (ADB) installed and available on your `PATH`.
-- At least one Android device or emulator connected and visible via `adb devices`.
-- The Android daemon binary built (arm64-v8a) using the existing pipeline.
+## What you should have before starting
+- Android platform-tools (adb) installed and on your `PATH`.
+- At least one device or emulator visible via `adb devices`.
+- The Android daemon binary built using [`scripts/build-android.sh`](../scripts/build-android.sh).
+- A configuration picked from [`CONFIGURATION`](CONFIGURATION.md).
 
 ## Quickstart
 
@@ -42,8 +46,17 @@ This document describes a lightweight ADB-based workflow for pushing and running
    ```
    - Currently issues a best-effort process kill on the device. RPC-based shutdown can be added later if enabled in the config.
 
-## Notes
+## What could go wrong?
+- adb cannot find a device (`adb devices` is empty).
+- The binary is missing because the build failed or the wrong ABI was used.
+- Permissions on `/data/local/tmp` vary across devices; some ROMs may block execution.
 
-- If multiple devices are connected, the scripts default to the first device reported by `adb devices`. Pass a specific device ID to `device-select.sh` (or set `DEVICE_ID` before calling a script) to target a particular device.
-- The target directory `/data/local/tmp/digimobile` is suitable for quick testing and does not require root on most devices, but storage policies may vary.
-- Consider adjusting the provided config for pruning, RPC credentials, or network selection to fit your testing scenario.
+## How to recover
+- Re-run `adb devices` and ensure USB debugging/emulator is active; pass `DEVICE_ID` to target a specific device.
+- Rebuild for the correct ABI/API combination and repush assets.
+- If the daemon fails to start, inspect logs with `pull-logs.sh` or `adb logcat` for SELinux denials.
+
+## Related docs
+- [`OVERVIEW`](OVERVIEW.md) for project context.
+- [`CONFIGURATION`](CONFIGURATION.md) to choose a profile before pushing.
+- [`ANDROID-INSTALL`](ANDROID-INSTALL.md) for packaging into apps/Termux.

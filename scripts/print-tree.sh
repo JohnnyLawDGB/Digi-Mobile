@@ -1,19 +1,30 @@
 #!/usr/bin/env bash
+# Render a shallow repository tree to orient contributors.
+# Environment: requires Python 3 on PATH. Intended for local inspection only;
+# does not touch DigiByte Core or Android builds.
 set -euo pipefail
 
-# Print a lightweight tree of the repository to orient contributors.
-# Shows directories and top-level files up to a depth of 3, skipping .git internals.
-
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+
+log() { echo "[Digi-Mobile] $*"; }
+
+die() {
+  echo "[Digi-Mobile] ERROR: $*" >&2
+  exit 1
+}
+
+command -v python >/dev/null 2>&1 || die "python is required to print the tree"
 cd "$ROOT_DIR"
 
-# Use Python to render a predictable depth-limited tree without requiring extra packages.
+log "Printing repository tree (depth 3) from ${ROOT_DIR}"
 python - <<'PY'
 import os
 from pathlib import Path
 
 root = Path('.')
 max_depth = 3
+
+print(root.resolve())
 
 def display(path: Path, prefix: str = '', depth: int = 0):
     if depth >= max_depth:
@@ -28,6 +39,5 @@ def display(path: Path, prefix: str = '', depth: int = 0):
             extension = '    ' if idx == len(entries) - 1 else '│   '
             display(entry, prefix + extension, depth + 1)
 
-print(root.resolve())
 display(root)
 PY
