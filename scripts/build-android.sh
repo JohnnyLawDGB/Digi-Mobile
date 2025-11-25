@@ -1,68 +1,43 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Cross-compile DigiByte Core for Android. Example usage:
-#   ARCH=arm64-v8a API=29 ANDROID_NDK_ROOT=/path/to/ndk ./scripts/build-android.sh
-# Supports ARCH values: arm64-v8a, armeabi-v7a
+# Wrapper for cross-compiling DigiByte Core for Android via CMake + the NDK.
+# Example:
+#   ANDROID_NDK_HOME=/path/to/ndk ./scripts/build-android.sh
+#   ANDROID_NDK_HOME=/path/to/ndk ARCH=armeabi-v7a API=24 ./scripts/build-android.sh
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-CORE_DIR="$ROOT_DIR/core"
-TOOLCHAIN_DIR="$ROOT_DIR/android/toolchain"
-OUTPUT_DIR="$ROOT_DIR/android/output"
-API=${API:-29}
-ARCH=${ARCH:-arm64-v8a}
+BUILD_DIR="${BUILD_DIR:-${ROOT_DIR}/android/build}"
+ARCH="${ARCH:-${ABI:-arm64-v8a}}"
+API="${API:-24}"
+JOBS="${JOBS:-$(nproc)}"
 
-if [[ -z "${ANDROID_NDK_ROOT:-}" ]]; then
-  echo "ANDROID_NDK_ROOT is not set." >&2
+# Resolve the NDK location from common environment variable names.
+if [[ -n "${ANDROID_NDK_HOME:-}" ]]; then
+  ANDROID_NDK="${ANDROID_NDK_HOME}"
+elif [[ -n "${ANDROID_NDK_ROOT:-}" ]]; then
+  ANDROID_NDK="${ANDROID_NDK_ROOT}"
+elif [[ -n "${ANDROID_NDK:-}" ]]; then
+  ANDROID_NDK="${ANDROID_NDK}"
+else
+  echo "Set ANDROID_NDK_HOME (or ANDROID_NDK_ROOT) to your NDK path." >&2
   exit 1
 fi
 
-case "$ARCH" in
-  arm64-v8a)
-    HOST_TRIPLE=aarch64-linux-android
-    ;;
-  armeabi-v7a)
-    HOST_TRIPLE=arm-linux-androideabi
-    ;;
-  *)
-    echo "Unsupported ARCH: $ARCH" >&2
-    exit 1
-    ;;
-esac
+TOOLCHAIN_FILE="${ROOT_DIR}/android/toolchain-android.cmake"
 
-export PATH="$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH"
-export AR=${AR:-llvm-ar}
-export CC=${CC:-"${HOST_TRIPLE}${API}-clang"}
-export CXX=${CXX:-"${HOST_TRIPLE}${API}-clang++"}
-export RANLIB=${RANLIB:-llvm-ranlib}
-export LD=${LD:-ld.lld}
-export CPPFLAGS="${CPPFLAGS:-} -fPIC"
-export CXXFLAGS="${CXXFLAGS:-} -Os -ffunction-sections -fdata-sections"
-export LDFLAGS="${LDFLAGS:-} -Wl,--gc-sections"
+cmake -S "${ROOT_DIR}/android" -B "${BUILD_DIR}" \
+  -DCMAKE_TOOLCHAIN_FILE="${TOOLCHAIN_FILE}" \
+  -DANDROID_NDK="${ANDROID_NDK}" \
+  -DANDROID_ABI="${ARCH}" \
+  -DANDROID_PLATFORM="${API}" \
+  "${@}"
 
-cd "$CORE_DIR"
+cmake --build "${BUILD_DIR}" --target digibyted -- -j"${JOBS}"
 
-if [[ ! -f ./configure ]]; then
-  echo "Running autogen..."
-  ./autogen.sh
+PREFIX="${BUILD_DIR}/android-prefix/${ARCH}"
+if [[ -d "${PREFIX}" ]]; then
+  echo "Artifacts staged under ${PREFIX}"
+else
+  echo "Build completed; check ${BUILD_DIR} for logs or artifacts." >&2
 fi
-
-SYSROOT="$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/sysroot"
-
-./configure \
-  --host="$HOST_TRIPLE" \
-  --prefix="${OUTPUT_DIR}/${ARCH}" \
-  --with-sysroot="$SYSROOT" \
-  --disable-bench \
-  --disable-man \
-  --disable-tests \
-  --disable-gui-tests \
-  --without-gui \
-  --with-miniupnpc=no \
-  --disable-zmq \
-  --enable-reduce-exports
-
-make -j"${NPROC:-$(nproc)}"
-make install
-
-echo "Artifacts staged under ${OUTPUT_DIR}/${ARCH}"
