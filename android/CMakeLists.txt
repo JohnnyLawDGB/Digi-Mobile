@@ -106,3 +106,12 @@ add_custom_target(digibyted ALL
 )
 
 install(CODE "message(STATUS \"digibyted artifacts are installed under ${DIGIBYTE_CORE_PREFIX}\")")
+
+# ---------------------------------------------------------------------------
+# JNI bridge for Android clients
+#
+# The JNI layer is built as libdigimobile_jni.so and can be consumed from an
+# Android app module via Gradle's externalNativeBuild or by bundling the
+# resulting shared library directly. This does not yet package an APK; it only
+# prepares the native layer and Java wrapper sources under android/java/.
+add_subdirectory(jni)
