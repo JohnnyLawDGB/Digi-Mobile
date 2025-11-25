@@ -1,43 +1,42 @@
 #!/usr/bin/env bash
 # Push the DigiByte daemon binary and configuration to a connected Android device.
-# Usage: ./scripts/push-node.sh [BINARY_PATH] [CONFIG_PATH]
-# The script relies on device-select.sh to determine which device to target.
-
+# Environment: requires adb on PATH, at least one connected device, and a built
+# digibyted binary under android/build. Intended for quick testing, not
+# production deployment.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+log() { echo "[Digi-Mobile] $*"; }
+
+die() {
+  echo "[Digi-Mobile] ERROR: $*" >&2
+  exit 1
+}
+
+require_cmd() { command -v "$1" >/dev/null 2>&1 || die "Missing required command: $1"; }
+
+require_cmd adb
 
 BINARY_PATH=${1:-"$REPO_ROOT/android/build/arm64-v8a/digibyted"}
 CONFIG_PATH=${2:-"$REPO_ROOT/config/digimobile-pruned.conf"}
 TARGET_DIR="/data/local/tmp/digimobile"
 
 source "$SCRIPT_DIR/device-select.sh" "${DEVICE_ID:-}" >/dev/null
-
-if [[ ! -f "$BINARY_PATH" ]]; then
-  echo "Binary not found at $BINARY_PATH. Build the Android binary first." >&2
-  exit 1
-fi
-
-if [[ ! -f "$CONFIG_PATH" ]]; then
-  echo "Config not found at $CONFIG_PATH. Please provide a valid config file." >&2
-  exit 1
-fi
-
 ADB=(adb -s "$SELECTED_DEVICE")
 
-# Create target directories on the device.
-"${ADB[@]}" shell "mkdir -p $TARGET_DIR/logs $TARGET_DIR/data"
+[[ -f "$BINARY_PATH" ]] || die "Binary not found at $BINARY_PATH. Run build-android.sh first."
+[[ -f "$CONFIG_PATH" ]] || die "Config not found at $CONFIG_PATH. Choose a config under config/."
 
-# Push binary and config.
+log "Pushing binary and config to $SELECTED_DEVICE"
+"${ADB[@]}" shell "mkdir -p $TARGET_DIR/logs $TARGET_DIR/data" || die "Failed to create target directories on device"
 "${ADB[@]}" push "$BINARY_PATH" "$TARGET_DIR/digibyted"
 "${ADB[@]}" push "$CONFIG_PATH" "$TARGET_DIR/digimobile.conf"
-
-# Ensure executable permissions.
 "${ADB[@]}" shell "chmod +x $TARGET_DIR/digibyted"
 
 cat <<INFO
-Pushed assets to device $SELECTED_DEVICE:
+[Digi-Mobile] Pushed assets to device $SELECTED_DEVICE:
   Binary: $TARGET_DIR/digibyted
   Config: $TARGET_DIR/digimobile.conf
   Data dir: $TARGET_DIR/data

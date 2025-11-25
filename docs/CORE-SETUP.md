@@ -1,29 +1,45 @@
 # DigiByte Core submodule setup
 
-The `core/` directory is meant to track the DigiByte Core repository as a git submodule pinned to v8.26.
-Use the commands below to add and pin the submodule if it has not already been initialized.
+_Status: Experimental / Early._ Digi-Mobile keeps a truncated/pruned DigiByte node for Android. This guide pins the DigiByte Core submodule without changing consensus logic.
 
-## Add the submodule
+## Who this is for
+- Developers preparing the DigiByte Core tree before Android builds.
+- Contributors verifying the repo references the expected upstream version.
 
-```bash
-git submodule add https://github.com/digibyte/digibyte.git ./core
-```
+## What you should have before starting
+- git installed with network access to `github.com/digibyte/digibyte`.
+- Basic familiarity with submodules and command-line tooling.
 
-## Check out the expected release
+## Steps
 
-After the submodule has been added, change into the `core` directory and check out the desired release tag or commit.
-For v8.26, run:
+1. **Add the submodule** (if missing):
+   ```bash
+   git submodule add https://github.com/digibyte/digibyte.git ./core
+   ```
 
-```bash
-cd core
-git fetch --tags
-# Replace v8.26 with a specific commit hash if you need to pin to an exact commit
+2. **Check out the expected release** using `.versions/core-version.txt`:
+   ```bash
+   cd core
+   git fetch --tags
+   CORE_REF=$(cat ../.versions/core-version.txt)
+   git checkout "$CORE_REF"
+   ```
 
-git checkout v8.26
-```
+3. **Refresh an existing submodule** after pulling repo updates:
+   ```bash
+   git submodule update --init --recursive core
+   ```
 
-If the submodule already exists, refresh it with:
+## What could go wrong?
+- Missing `.versions/core-version.txt` means the pinned reference is unknown.
+- Network/firewall issues can block fetching tags.
+- Local changes inside `core/` can prevent clean checkouts.
 
-```bash
-git submodule update --init --recursive core
-```
+## How to recover
+- Regenerate the submodule by removing `core/` then re-running the steps above.
+- Use `git -C core status` to spot local modifications before trying another checkout.
+- If fetches fail, retry with a different network or mirror.
+
+## Related docs
+- [`OVERVIEW`](OVERVIEW.md) for project context.
+- [`CONFIGURATION`](CONFIGURATION.md) for picking Android-friendly runtime settings.
