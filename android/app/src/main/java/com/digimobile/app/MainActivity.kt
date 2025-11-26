@@ -1,11 +1,13 @@
 package com.digimobile.app
 
+import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
-import com.digimobile.node.DigiMobileNodeController
 import com.digimobile.app.databinding.ActivityMainBinding
+import com.digimobile.node.DigiMobileNodeController
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -34,9 +36,7 @@ class MainActivity : AppCompatActivity() {
                 "First launch detected. Tap the button to create private config/data/log folders and start the node."
         }
 
-        binding.buttonStartNode.setOnClickListener {
-            startNodeFlow()
-        }
+        binding.buttonStartNode.setOnClickListener { startNodeFlow() }
 
         updateStatusLabel(nodeController.statusText())
     }
@@ -47,16 +47,25 @@ class MainActivity : AppCompatActivity() {
 
         lifecycleScope.launch(Dispatchers.IO) {
             try {
+                // Ensure directories/config are ready even before the service runs.
                 val paths = bootstrapper.ensureBootstrap()
-                // TODO: bundle the DigiByte daemon binary via assets or native libs and ensure it exists here.
-                nodeController.startNode(paths.configFile.absolutePath, paths.dataDir.absolutePath)
+                withContext(Dispatchers.Main) {
+                    val intent = Intent(this@MainActivity, NodeService::class.java)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        startForegroundService(intent)
+                    } else {
+                        @Suppress("DEPRECATION")
+                        startService(intent)
+                    }
+                    updateStatusLabel("Starting node service...")
+                }
 
                 val status = nodeController.statusText()
                 withContext(Dispatchers.Main) {
                     updateStatusLabel(status)
                     Toast.makeText(
                         this@MainActivity,
-                        "Node start requested. Status: $status",
+                        "Node service started. Status: $status\nConfig: ${paths.configFile.absolutePath}",
                         Toast.LENGTH_LONG
                     ).show()
                 }

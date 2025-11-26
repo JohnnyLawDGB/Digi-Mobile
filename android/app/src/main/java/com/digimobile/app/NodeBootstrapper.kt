@@ -2,6 +2,7 @@ package com.digimobile.app
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.util.Log
 import java.io.File
 
 class NodeBootstrapper(private val context: Context) {
@@ -28,18 +29,40 @@ class NodeBootstrapper(private val context: Context) {
 
         val configFile = File(configDir, "digimobile-pruned.conf")
         if (!configFile.exists()) {
-            configFile.writeText(buildDefaultConfig(dataDir, logsDir))
+            copyDefaultConfig(configFile, dataDir, logsDir)
         }
 
         prefs.edit().putBoolean(KEY_BOOTSTRAP_COMPLETE, true).apply()
         return NodePaths(configFile, dataDir, logsDir)
     }
 
-    private fun buildDefaultConfig(dataDir: File, logsDir: File): String {
+    private fun copyDefaultConfig(configFile: File, dataDir: File, logsDir: File) {
         val logFile = File(logsDir, "debug.log")
+        val builder = StringBuilder()
+        try {
+            context.assets.open(DEFAULT_CONFIG_ASSET).bufferedReader().use { reader ->
+                builder.append(reader.readText())
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Falling back to generated default config: ${e.message}")
+            builder.append(buildDefaultConfigBody())
+        }
+
+        val body = builder.toString()
+        val config = StringBuilder(body)
+        if (!body.contains("datadir=")) {
+            config.append("\ndatadir=${dataDir.absolutePath}")
+        }
+        if (!body.contains("debuglogfile=")) {
+            config.append("\ndebuglogfile=${logFile.absolutePath}")
+        }
+
+        configFile.writeText(config.toString().trim() + "\n")
+    }
+
+    private fun buildDefaultConfigBody(): String {
         return """
             # Digi-Mobile default pruned configuration
-            # Generated on first run. Edit cautiously if you know what you're doing.
             prune=550
             server=1
             daemon=0
@@ -47,14 +70,13 @@ class NodeBootstrapper(private val context: Context) {
             txindex=0
             rpcallowip=127.0.0.1
             rpcbind=127.0.0.1
-            datadir=${dataDir.absolutePath}
-            debuglogfile=${logFile.absolutePath}
-            # TODO: swap in packaged DigiByte daemon binary path or asset extraction when available.
-            """.trimIndent()
+        """.trimIndent()
     }
 
     companion object {
+        private const val TAG = "NodeBootstrapper"
         private const val PREFS_NAME = "digimobile_prefs"
         private const val KEY_BOOTSTRAP_COMPLETE = "bootstrap_complete"
+        private const val DEFAULT_CONFIG_ASSET = "config/digimobile-pruned.conf"
     }
 }
