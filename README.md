@@ -18,7 +18,7 @@ Digi-Mobile packages DigiByte Core as a pruned, Android-friendly full node build
   ```bash
   ./setup.sh
   ```
-- The wizard auto-detects your device, checks the Android NDK, initializes the `core/` submodule if missing, and either builds or uses prebuilt binaries.
+- The wizard auto-detects your device, checks the Android NDK, initializes the `core/` DigiByte Core checkout if missing (and fixes its remote if needed), and either builds or uses prebuilt binaries.
 - After it finishes, use `./status.sh` to check the node and see [`docs/GETTING-STARTED-NONTECH.md`](docs/GETTING-STARTED-NONTECH.md) for what to expect.
 
 ## Status
@@ -36,6 +36,7 @@ Digi-Mobile packages DigiByte Core as a pruned, Android-friendly full node build
    ```bash
    ./scripts/setup-core.sh
    ```
+   - Optional: override the upstream with `CORE_REMOTE_URL=https://github.com/DigiByte-Core/digibyte.git` (default) or pin a different ref with `CORE_REF=develop`.
 3. Build Android artifacts (defaults: `ARCH=arm64-v8a`, `API=29`):
    ```bash
    ./scripts/build-android.sh

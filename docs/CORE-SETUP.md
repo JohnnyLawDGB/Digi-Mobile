@@ -1,44 +1,39 @@
-# DigiByte Core submodule setup
+# DigiByte Core checkout setup
 
-_Status: Experimental / Early._ Digi-Mobile keeps a truncated/pruned DigiByte node for Android. This guide pins the DigiByte Core submodule without changing consensus logic.
+_Status: Experimental / Early._ Digi-Mobile vendors the official DigiByte Core repository into `core/` for Android builds. The scripts do **not** modify consensus code.
 
 ## Who this is for
 - Developers preparing the DigiByte Core tree before Android builds.
 - Contributors verifying the repo references the expected upstream version.
 
 ## What you should have before starting
-- git installed with network access to `github.com/digibyte/digibyte`.
-- Basic familiarity with submodules and command-line tooling.
+- git installed with network access to `https://github.com/DigiByte-Core/digibyte.git`.
+- Basic familiarity with command-line tooling.
 
 ## Steps
 
-1. **Add the submodule** (if missing):
+1. **Run the setup helper** from the repo root:
    ```bash
-   git submodule add https://github.com/digibyte/digibyte.git ./core
+   ./scripts/setup-core.sh
    ```
+   - By default this uses `core/`, remote `https://github.com/DigiByte-Core/digibyte.git`, and ref `v8.26.1`.
+   - Override as needed: `CORE_DIR=/tmp/core-test CORE_REMOTE_URL=https://github.com/DigiByte-Core/digibyte.git CORE_REF=develop ./scripts/setup-core.sh`.
 
-2. **Check out the expected release** using `.versions/core-version.txt`:
-   ```bash
-   cd core
-   git fetch --tags
-   CORE_REF=$(cat ../.versions/core-version.txt)
-   git checkout "$CORE_REF"
-   ```
-
-3. **Refresh an existing submodule** after pulling repo updates:
-   ```bash
-   git submodule update --init --recursive core
-   ```
+2. **What the script does**
+   - Creates `core/` if missing and initializes a git repo.
+   - Detects non-git directories at `core/`, moves them aside, and recreates a clean repo.
+   - Verifies the origin remote matches `CORE_REMOTE_URL` and corrects it if different.
+   - Fetches tags and checks out the pinned `CORE_REF`, failing with a clear hint if the ref cannot be resolved.
 
 ## What could go wrong?
-- Missing `.versions/core-version.txt` means the pinned reference is unknown.
-- Network/firewall issues can block fetching tags.
+- Network/firewall issues can block fetching tags from GitHub.
 - Local changes inside `core/` can prevent clean checkouts.
+- Pointing `CORE_REMOTE_URL` at a mirror that lacks the desired tag will cause the ref check to fail.
 
 ## How to recover
-- Regenerate the submodule by removing `core/` then re-running the steps above.
-- Use `git -C core status` to spot local modifications before trying another checkout.
-- If fetches fail, retry with a different network or mirror.
+- Re-run `./scripts/setup-core.sh` to fix the remote and re-fetch tags.
+- Move or clean any local edits inside `core/` before rerunning the script.
+- If fetches fail, retry with a different network or ensure the remote contains the requested ref.
 
 ## Related docs
 - [`OVERVIEW`](OVERVIEW.md) for project context.
