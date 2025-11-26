@@ -7,6 +7,11 @@ Digi-Mobile packages DigiByte Core as a pruned, Android-friendly full node build
 - Read the quick guide: [`docs/GETTING-STARTED-NONTECH.md`](docs/GETTING-STARTED-NONTECH.md) for a non-technical overview and examples of good vs. bad uses.
 - **Disclaimer:** Experimental software with no guarantees; do not use for serious amounts of money.
 
+## Install on Android via APK (no building)
+- On your Android device, open this GitHub repo in a browser, tap **Releases**, and download the latest APK.
+- Install the APK (enable "unknown sources" if prompted), then open Digi-Mobile and tap **Set up and start node**.
+- **Hobby/testing only.** See [`docs/MOBILE-INSTALL.md`](docs/MOBILE-INSTALL.md) for the step-by-step walkthrough.
+
 ## One-Command Setup (Beginner-Friendly)
 - **Hobby/testing only. Not for serious funds.**
 - Plug in an Android device with USB debugging enabled and run:
