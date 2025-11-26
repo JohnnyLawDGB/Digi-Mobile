@@ -46,8 +46,15 @@ class NodeService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
-        scope.launch { nodeController.stopNode() }
-        scope.coroutineContext.cancel()
+        val stopJob = scope.launch {
+            try {
+                nodeController.stopNode()
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to stop node: ${e.message}", e)
+            }
+        }
+
+        stopJob.invokeOnCompletion { scope.coroutineContext.cancel() }
         stopForeground(STOP_FOREGROUND_REMOVE)
     }
 
