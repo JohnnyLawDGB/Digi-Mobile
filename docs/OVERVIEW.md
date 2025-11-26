@@ -24,7 +24,7 @@ _Status: Experimental / Early._ Digi-Mobile is a truncated/pruned DigiByte node 
 - [`JNI-BRIDGE.md`](./JNI-BRIDGE.md): Notes on the experimental JNI layer.
 
 ## Key directories
-- `core/`: DigiByte Core source tracked as a submodule pinned to the version in `.versions/core-version.txt`.
+- `core/`: DigiByte Core source as a vendored git checkout pinned by `scripts/setup-core.sh`.
 - `android/`: Android build glue, patches, and packaging assets (CMake/NDK).
 - `scripts/`: Helper scripts for fetching core sources, printing the repository layout, and building artifacts.
 - `config/`: Configuration files and pinned version references.
@@ -32,15 +32,14 @@ _Status: Experimental / Early._ Digi-Mobile is a truncated/pruned DigiByte node 
 
 ## Getting Started
 - Prefer the one-command wizard first: see [`README.md`](../README.md#one-command-setup-beginner-friendly) and run `./setup.sh`.
-- Initialize the DigiByte Core submodule following [`docs/CORE-SETUP.md`](./CORE-SETUP.md).
-- Run the helper script [`scripts/setup-core.sh`](../scripts/setup-core.sh) to ensure the `core/` tree is initialized and on the expected tag.
+- Run the helper script [`scripts/setup-core.sh`](../scripts/setup-core.sh) to ensure the `core/` tree is initialized, on the expected tag, and pointed at the official DigiByte Core remote. See [`docs/CORE-SETUP.md`](./CORE-SETUP.md) for details and overrides.
 - Review [`CONFIGURATION.md`](CONFIGURATION.md) to pick a pruned profile before pushing to devices.
 
 ## What could go wrong?
-- Build failures if NDK/CMake versions are mismatched or the submodule is uninitialized.
+- Build failures if NDK/CMake versions are mismatched or the DigiByte Core checkout is missing.
 - adb cannot find a device; rerun `adb devices` and ensure USB debugging/emulator is active.
 
 ## How to recover
-- Re-run `./scripts/setup-core.sh` after pulling updates to sync the submodule.
+- Re-run `./scripts/setup-core.sh` after pulling updates to refresh the DigiByte Core checkout and verify the remote/ref.
 - Clean the Android build directory (`rm -rf android/build`) and rebuild if CMake cache issues appear.
 - Unplug/restart the device or emulator and retry adb-based scripts.

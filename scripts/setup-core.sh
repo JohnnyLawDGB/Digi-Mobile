@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
-set -euo pipefail
+# Ensure the core/ directory contains a clean DigiByte Core checkout. This tree is vendored for
+# Android builds only; Digi-Mobile does not modify DigiByte Core consensus code here. Override
+# CORE_REF to pin a different ref (e.g., CORE_REF=develop ./scripts/setup-core.sh).
+
+set -u
+set -o pipefail
 
 die() {
   echo "[Digi-Mobile] ERROR: $*" >&2
@@ -10,48 +15,66 @@ log() {
   echo "[Digi-Mobile] $*"
 }
 
+CORE_DIR="${CORE_DIR:-core}"
+CORE_REMOTE_URL="${CORE_REMOTE_URL:-https://github.com/DigiByte-Core/digibyte.git}"
+CORE_REF="${CORE_REF:-v8.26.1}"
+
+get_core_origin() {
+  git -C "$CORE_DIR" remote get-url origin 2>/dev/null || echo ""
+}
+
 ROOT_DIR="$(git rev-parse --show-toplevel 2>/dev/null)" || die "Not inside a git repository."
 cd "${ROOT_DIR}" || die "Failed to cd into repo root ${ROOT_DIR}"
 
-DIGIMOBILE_CORE_REF_DEFAULT="v8.26.1"
-REF="${DIGIMOBILE_CORE_REF:-${DIGIMOBILE_CORE_REF_DEFAULT}}"
-FALLBACK_REF="v8.26.0"
+log "Using DigiByte Core directory: ${CORE_DIR}"
+log "Using DigiByte Core remote: ${CORE_REMOTE_URL}"
+log "Target DigiByte Core ref: ${CORE_REF}"
 
-log "Initializing/updating DigiByte Core submodule at ${ROOT_DIR}/core"
-git submodule update --init --recursive core
-
-[[ -d "core" ]] || die "core/ submodule missing after initialization"
-
-cd core
-log "Fetching DigiByte Core refs from origin"
-git fetch --tags origin
-
-# Resolve the requested ref. If it is missing, try the fallback ref (v8.26.0).
-# This allows setup to succeed even if the default ref is not present in the
-# submodule checkout while still surfacing the original request to the user.
-if ! TARGET_COMMIT="$(git rev-parse "${REF}^{commit}" 2>/dev/null)"; then
-  if TARGET_COMMIT="$(git rev-parse "${FALLBACK_REF}^{commit}" 2>/dev/null)"; then
-    echo "[Digi-Mobile] WARNING: ${REF} not found, falling back to ${FALLBACK_REF}" >&2
-    REF="${FALLBACK_REF}"
-  else
-    AVAILABLE_TAGS=$(git tag -l "v8.*" | sort -V)
-    die "Unable to resolve DigiByte Core ref '${REF}'. Tried fallback '${FALLBACK_REF}', but it was not found. Available v8.x tags:\n${AVAILABLE_TAGS:-<none>}"
+if [[ ! -d "${CORE_DIR}" ]]; then
+  log "${CORE_DIR}/ is missing. Creating a fresh DigiByte Core repo."
+  mkdir -p "${CORE_DIR}" || die "Failed to create ${CORE_DIR}/"
+  git -C "${CORE_DIR}" init || die "Failed to initialize git repo in ${CORE_DIR}/"
+  git -C "${CORE_DIR}" remote add origin "${CORE_REMOTE_URL}" || die "Failed to add origin remote"
+elif [[ -d "${CORE_DIR}/.git" ]]; then
+  ORIGIN_URL="$(get_core_origin)"
+  if [[ "${ORIGIN_URL}" != "${CORE_REMOTE_URL}" ]]; then
+    echo "[Digi-Mobile] WARNING: ${CORE_DIR}/ origin remote '${ORIGIN_URL}' differs from expected '${CORE_REMOTE_URL}'. Correcting it." >&2
+    if git -C "${CORE_DIR}" remote set-url origin "${CORE_REMOTE_URL}" 2>/dev/null; then
+      log "Updated origin remote to ${CORE_REMOTE_URL}"
+    else
+      git -C "${CORE_DIR}" remote add origin "${CORE_REMOTE_URL}" || die "Failed to add origin remote"
+    fi
   fi
-fi
-
-CURRENT_COMMIT="$(git rev-parse HEAD)"
-if [[ "${CURRENT_COMMIT}" == "${TARGET_COMMIT}" ]]; then
-  log "core/ already at ${REF} [$(git rev-parse --short HEAD)]"
 else
-  log "Checking out DigiByte Core ref ${REF}"
-  git checkout --detach "${TARGET_COMMIT}"
+  BROKEN_DIR="${CORE_DIR}.broken.$(date +%s)"
+  echo "[Digi-Mobile] WARNING: ${CORE_DIR}/ exists but is not a git repo. Moving it to ${BROKEN_DIR}" >&2
+  mv "${CORE_DIR}" "${BROKEN_DIR}" || die "Failed to move broken ${CORE_DIR}/ aside"
+  mkdir -p "${CORE_DIR}" || die "Failed to recreate ${CORE_DIR}/"
+  git -C "${CORE_DIR}" init || die "Failed to initialize git repo in ${CORE_DIR}/"
+  git -C "${CORE_DIR}" remote add origin "${CORE_REMOTE_URL}" || die "Failed to add origin remote"
 fi
 
-SHORT_COMMIT="$(git rev-parse --short HEAD)"
+echo "[Digi-Mobile] Fetching DigiByte Core refs from ${CORE_REMOTE_URL}"
+if ! git -C "${CORE_DIR}" fetch --tags --prune origin; then
+  echo "[Digi-Mobile] ERROR: Failed to fetch from DigiByte Core remote." >&2
+  exit 1
+fi
+
+if git -C "${CORE_DIR}" show-ref --verify --quiet "refs/tags/${CORE_REF}"; then
+  git -C "${CORE_DIR}" checkout -f "tags/${CORE_REF}" || die "Failed to checkout DigiByte Core tag ${CORE_REF}"
+elif git -C "${CORE_DIR}" rev-parse --verify --quiet "${CORE_REF}"; then
+  git -C "${CORE_DIR}" checkout -f "${CORE_REF}" || die "Failed to checkout DigiByte Core ref ${CORE_REF}"
+else
+  echo "[Digi-Mobile] ERROR: Unable to resolve DigiByte Core ref '${CORE_REF}' in ${CORE_REMOTE_URL}" >&2
+  echo "[Digi-Mobile] Hint: check https://github.com/DigiByte-Core/digibyte/tags to confirm tag names." >&2
+  exit 1
+fi
+
+SHORT_COMMIT="$(git -C "${CORE_DIR}" rev-parse --short HEAD)" || die "Failed to resolve checked-out commit"
 
 cat <<SUMMARY
 Digi-Mobile core setup complete.
-Submodule: DigiByte-Core/digibyte
-Checked out ref: ${REF} (commit ${SHORT_COMMIT})
+Repository: DigiByte-Core/digibyte
+Checked out ref: ${CORE_REF} (commit ${SHORT_COMMIT})
 Note: Digi-Mobile does NOT change DigiByte Core consensus rules; it just uses this version.
 SUMMARY
