@@ -67,13 +67,13 @@ pushd "${ANDROID_BUILD_DIR}" >/dev/null
   --with-daemon \
   CXXFLAGS="-fPIC"
 
-log "Building digibyted (this may take a while)"
-make -j"$(nproc)" digibyted
+log "Building DigiByte Core for Android (this may take a while)"
+make -j"$(nproc)"
 
-BIN_SOURCE="${ANDROID_BUILD_DIR}/src/digibyted"
+BIN_SOURCE="src/digibyted"
 [[ -x "${BIN_SOURCE}" ]] || die "digibyted not produced at ${BIN_SOURCE}"
 
 cp "${BIN_SOURCE}" "${OUTPUT_DIR}/digibyted"
 popd >/dev/null
 
-log "Success! Android arm64-v8a digibyted available at ${OUTPUT_DIR}/digibyted"
+log "Success: copied src/digibyted -> build-android/bin/arm64-v8a/digibyted"
