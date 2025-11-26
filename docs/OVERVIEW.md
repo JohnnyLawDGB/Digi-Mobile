@@ -15,6 +15,7 @@ _Status: Experimental / Early._ Digi-Mobile is a truncated/pruned DigiByte node 
 - [`GETTING-STARTED-NONTECH.md`](./GETTING-STARTED-NONTECH.md): Plain-English guide for non-technical helpers and users.
 - [`MOBILE-INSTALL.md`](./MOBILE-INSTALL.md): Install Digi-Mobile directly on Android via APK.
 - [`CORE-SETUP.md`](./CORE-SETUP.md): Initialize the DigiByte Core source tree and prerequisites.
+- [`ANDROID-CORE-BUILD.md`](./ANDROID-CORE-BUILD.md): Build and package the DigiByte daemon for Android.
 - [`CONFIGURATION.md`](./CONFIGURATION.md): Runtime settings tuned for pruned mobile nodes.
 - [`ANDROID-BUILD.md`](./ANDROID-BUILD.md): Android build flow and architecture notes.
 - [`android/README-ANDROID-BUILD.md`](../android/README-ANDROID-BUILD.md): Android-side toolchain specifics and Gradle/NDK tips.
@@ -29,6 +30,11 @@ _Status: Experimental / Early._ Digi-Mobile is a truncated/pruned DigiByte node 
 - `scripts/`: Helper scripts for fetching core sources, printing the repository layout, and building artifacts.
 - `config/`: Configuration files and pinned version references.
 - `docs/`: Project documentation for Android builds, setup steps, and repository orientation.
+
+## Android Core Integration
+- Digi-Mobile builds DigiByte Core (tag `v8.26.1`) for Android arm64 via `scripts/build-core-android.sh`.
+- The resulting headless `digibyted` binary is staged into the APK as `assets/bin/digibyted-arm64` and extracted to app-private storage on first run.
+- The JNI bridge spawns the daemon with app-managed config and data directories so the APK remains self-contained.
 
 ## Getting Started
 - Prefer the one-command wizard first: see [`README.md`](../README.md#one-command-setup-beginner-friendly) and run `./setup.sh`.

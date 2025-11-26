@@ -1,6 +1,9 @@
 #include <jni.h>
+#include <android/asset_manager.h>
+#include <android/asset_manager_jni.h>
 #include <android/log.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <signal.h>
 #include <string>
 #include <sys/stat.h>
@@ -14,7 +17,6 @@
 // Play Store-distributed binaries. This harness is intended for internal and
 // sideloaded testing. A future iteration is expected to embed DigiByte Core as
 // a library and expose richer control and status APIs.
-
 namespace {
 
 constexpr const char *kLogTag = "DigiMobileJNI";
@@ -23,11 +25,13 @@ enum class NodeStatus {
     NOT_RUNNING,
     RUNNING,
     BINARY_MISSING,
+    ERROR,
 };
 
 // Track the currently running node process ID (if any).
 static pid_t g_node_pid = -1;
 static NodeStatus g_status = NodeStatus::NOT_RUNNING;
+static std::string g_node_binary;
 
 // Helper to convert jstring to std::string.
 std::string ToStdString(JNIEnv *env, jstring value) {
@@ -51,41 +55,86 @@ bool IsProcessAlive(pid_t pid) {
     return kill(pid, 0) == 0;
 }
 
-bool IsExecutable(const std::string &path) {
+bool EnsureDir(const std::string &path) {
     struct stat info {};
-    return stat(path.c_str(), &info) == 0 && (info.st_mode & S_IXUSR);
+    if (stat(path.c_str(), &info) == 0) {
+        return S_ISDIR(info.st_mode);
+    }
+    return mkdir(path.c_str(), 0700) == 0;
 }
 
-std::string FindNodeBinary(const std::string &data_dir) {
-    // Prefer well-known locations under the app's data directory but fall back
-    // to a plain executable name to allow PATH resolution in the shell.
-    const std::vector<std::string> candidates = {
-            data_dir + "/bin/digibyted",
-            data_dir + "/digibyted",
-            "/data/local/tmp/digibyted",
-            "digibyted",
-    };
+bool MakeExecutable(const std::string &path) {
+    return chmod(path.c_str(), 0700) == 0;
+}
 
-    for (const auto &candidate : candidates) {
-        if (IsExecutable(candidate)) {
-            return candidate;
+bool CopyAssetToFile(AAssetManager *asset_manager, const std::string &asset_path,
+                     const std::string &dest_path) {
+    if (!asset_manager) {
+        __android_log_print(ANDROID_LOG_ERROR, kLogTag, "Asset manager is null; cannot copy %s",
+                            asset_path.c_str());
+        return false;
+    }
+
+    AAsset *asset = AAssetManager_open(asset_manager, asset_path.c_str(), AASSET_MODE_STREAMING);
+    if (!asset) {
+        __android_log_print(ANDROID_LOG_ERROR, kLogTag, "Asset %s not found in APK",
+                            asset_path.c_str());
+        return false;
+    }
+
+    int fd = open(dest_path.c_str(), O_CREAT | O_WRONLY | O_TRUNC, 0700);
+    if (fd < 0) {
+        __android_log_print(ANDROID_LOG_ERROR, kLogTag, "Failed to open %s for writing: errno=%d",
+                            dest_path.c_str(), errno);
+        AAsset_close(asset);
+        return false;
+    }
+
+    constexpr size_t kBufferSize = 16 * 1024;
+    std::vector<unsigned char> buffer(kBufferSize);
+    int bytes_read = 0;
+    while ((bytes_read = AAsset_read(asset, buffer.data(), buffer.size())) > 0) {
+        ssize_t written = write(fd, buffer.data(), static_cast<size_t>(bytes_read));
+        if (written != bytes_read) {
+            __android_log_print(ANDROID_LOG_ERROR, kLogTag,
+                                "Short write while copying asset %s to %s (errno=%d)",
+                                asset_path.c_str(), dest_path.c_str(), errno);
+            close(fd);
+            AAsset_close(asset);
+            return false;
         }
     }
 
-    return {};
+    close(fd);
+    AAsset_close(asset);
+    if (bytes_read < 0) {
+        __android_log_print(ANDROID_LOG_ERROR, kLogTag,
+                            "Error reading asset %s (errno=%d)", asset_path.c_str(), errno);
+        return false;
+    }
+
+    if (!MakeExecutable(dest_path)) {
+        __android_log_print(ANDROID_LOG_WARN, kLogTag,
+                            "Failed to mark %s executable (errno=%d)", dest_path.c_str(), errno);
+        return false;
+    }
+    return true;
 }
 
 } // namespace
 
 extern "C" JNIEXPORT void JNICALL
 Java_com_digimobile_node_DigiMobileNodeController_nativeStartNode(
-        JNIEnv *env, jobject /*thiz*/, jstring j_config_path, jstring j_data_dir) {
+        JNIEnv *env, jobject /*thiz*/, jobject j_asset_manager, jstring j_config_path,
+        jstring j_data_dir, jstring j_files_dir) {
     std::string config_path = ToStdString(env, j_config_path);
     std::string data_dir = ToStdString(env, j_data_dir);
+    std::string files_dir = ToStdString(env, j_files_dir);
 
-    if (config_path.empty() || data_dir.empty()) {
+    if (config_path.empty() || data_dir.empty() || files_dir.empty()) {
         __android_log_print(ANDROID_LOG_ERROR, kLogTag,
-                            "Config path or data dir is empty; refusing to start node");
+                            "Config path, data dir, or files dir is empty; refusing to start node");
+        g_status = NodeStatus::ERROR;
         return;
     }
 
@@ -96,32 +145,46 @@ Java_com_digimobile_node_DigiMobileNodeController_nativeStartNode(
         return;
     }
 
-    std::string binary_path = FindNodeBinary(data_dir);
-    if (binary_path.empty()) {
-        __android_log_print(ANDROID_LOG_WARN, kLogTag,
-                            "Node binary not found near %s – Digi-Mobile core not installed yet",
-                            data_dir.c_str());
-        g_status = NodeStatus::BINARY_MISSING;
-        g_node_pid = -1;
+    AAssetManager *asset_manager = AAssetManager_fromJava(env, j_asset_manager);
+    const std::string bin_dir = files_dir + "/bin";
+    if (!EnsureDir(bin_dir)) {
+        __android_log_print(ANDROID_LOG_ERROR, kLogTag, "Failed to ensure bin directory at %s",
+                            bin_dir.c_str());
+        g_status = NodeStatus::ERROR;
         return;
     }
 
-    // Build a minimal command. In production we expect tighter control and
-    // potentially to embed the daemon as a library rather than spawning a child.
-    std::string command = binary_path + " -conf=\"" + config_path + "\" -datadir=\"" + data_dir + "\"";
+    g_node_binary = bin_dir + "/digibyted";
+    if (access(g_node_binary.c_str(), X_OK) != 0) {
+        __android_log_print(ANDROID_LOG_INFO, kLogTag,
+                            "Extracting digibyted from assets into %s", g_node_binary.c_str());
+        if (!CopyAssetToFile(asset_manager, "bin/digibyted-arm64", g_node_binary)) {
+            g_status = NodeStatus::BINARY_MISSING;
+            g_node_pid = -1;
+            return;
+        }
+    } else {
+        if (!MakeExecutable(g_node_binary)) {
+            __android_log_print(ANDROID_LOG_WARN, kLogTag,
+                                "digibyted at %s exists but is not executable", g_node_binary.c_str());
+        }
+    }
+
+    std::string conf_arg = "-conf=" + config_path;
+    std::string datadir_arg = "-datadir=" + data_dir;
 
     pid_t child_pid = fork();
     if (child_pid == 0) {
-        // Child process: execute the daemon via /system/bin/sh for compatibility.
-        execlp("/system/bin/sh", "sh", "-c", command.c_str(), static_cast<char *>(nullptr));
-        _exit(127);  // If execlp fails.
+        execl(g_node_binary.c_str(), g_node_binary.c_str(), conf_arg.c_str(), datadir_arg.c_str(),
+              static_cast<char *>(nullptr));
+        _exit(127);  // If execl fails.
     } else if (child_pid > 0) {
         g_node_pid = child_pid;
         g_status = NodeStatus::RUNNING;
-        __android_log_print(ANDROID_LOG_INFO, kLogTag,
-                            "Started Digi-Mobile node with PID %d", g_node_pid);
+        __android_log_print(ANDROID_LOG_INFO, kLogTag, "Started Digi-Mobile node with PID %d",
+                            g_node_pid);
     } else {
-        g_status = NodeStatus::NOT_RUNNING;
+        g_status = NodeStatus::ERROR;
         __android_log_print(ANDROID_LOG_ERROR, kLogTag,
                             "Failed to fork for Digi-Mobile node: errno=%d", errno);
     }
@@ -140,11 +203,9 @@ Java_com_digimobile_node_DigiMobileNodeController_nativeStopNode(
     if (kill(g_node_pid, SIGTERM) == 0) {
         __android_log_print(ANDROID_LOG_INFO, kLogTag,
                             "Sent SIGTERM to Digi-Mobile node (PID %d)", g_node_pid);
-        // Non-blocking reap attempt to avoid zombie processes.
         int status = 0;
         if (waitpid(g_node_pid, &status, WNOHANG) > 0) {
-            __android_log_print(ANDROID_LOG_INFO, kLogTag,
-                                "Digi-Mobile node exited with status %d", status);
+            __android_log_print(ANDROID_LOG_INFO, kLogTag, "Digi-Mobile node exited with status %d", status);
         }
     } else {
         __android_log_print(ANDROID_LOG_ERROR, kLogTag,
@@ -162,6 +223,10 @@ Java_com_digimobile_node_DigiMobileNodeController_nativeGetStatus(
         JNIEnv *env, jobject /*thiz*/) {
     if (g_status == NodeStatus::BINARY_MISSING) {
         return env->NewStringUTF("BINARY_MISSING");
+    }
+
+    if (g_status == NodeStatus::ERROR) {
+        return env->NewStringUTF("ERROR");
     }
 
     if (g_node_pid > 0) {
