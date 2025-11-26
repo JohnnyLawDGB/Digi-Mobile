@@ -46,6 +46,8 @@ Digi-Mobile packages DigiByte Core as a pruned, Android-friendly full node build
    - [`android/README-ANDROID-BUILD.md`](android/README-ANDROID-BUILD.md)
    - [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md)
 
+Digi-Mobile currently wraps DigiByte Core v8.26.x (default tag `v8.26.1`). See [`docs/CORE-VERSIONING.md`](docs/CORE-VERSIONING.md) for details.
+
 ## Design Principles
 
 - Minimal changes to DigiByte Core: keep consensus and P2P logic untouched while pinning to a known release.

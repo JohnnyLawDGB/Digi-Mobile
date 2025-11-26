@@ -1,62 +1,47 @@
 #!/usr/bin/env bash
-# Initialize and validate the DigiByte Core submodule.
-# Environment: requires git on PATH and internet access to fetch the pinned
-# DigiByte Core reference in .versions/core-version.txt. Keeps consensus code
-# unchanged; intended for local setup.
 set -euo pipefail
-
-ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-CORE_DIR="$ROOT_DIR/core"
-VERSION_FILE="$ROOT_DIR/.versions/core-version.txt"
-REPO_URL="https://github.com/digibyte/digibyte.git"
-
-log() { echo "[Digi-Mobile] $*"; }
 
 die() {
   echo "[Digi-Mobile] ERROR: $*" >&2
   exit 1
 }
 
-command -v git >/dev/null 2>&1 || die "git is required to manage the submodule"
-[[ -f "$VERSION_FILE" ]] || die "Missing $VERSION_FILE. Cannot determine desired DigiByte Core version."
-EXPECTED_REF=$(<"$VERSION_FILE")
+log() {
+  echo "[Digi-Mobile] $*"
+}
 
-cd "$ROOT_DIR"
+ROOT_DIR="$(git rev-parse --show-toplevel 2>/dev/null)" || die "Not inside a git repository."
+cd "${ROOT_DIR}" || die "Failed to cd into repo root ${ROOT_DIR}"
 
-if [[ ! -d "$CORE_DIR/.git" ]]; then
-  log "Adding DigiByte Core submodule at $CORE_DIR"
-  git submodule add "$REPO_URL" "$CORE_DIR"
-fi
+DIGIMOBILE_CORE_REF_DEFAULT="v8.26.1"
+REF="${DIGIMOBILE_CORE_REF:-${DIGIMOBILE_CORE_REF_DEFAULT}}"
 
-log "Initializing and updating the core submodule..."
+log "Initializing/updating DigiByte Core submodule at ${ROOT_DIR}/core"
 git submodule update --init --recursive core
 
-log "Checking out expected reference: $EXPECTED_REF"
-if ! git -C "$CORE_DIR" fetch --tags --quiet; then
-  log "Warning: failed to fetch tags for DigiByte Core. Continuing with existing refs."
+[[ -d "core" ]] || die "core/ submodule missing after initialization"
+
+cd core
+log "Fetching DigiByte Core refs from origin"
+git fetch --tags origin
+
+if ! TARGET_COMMIT="$(git rev-parse "${REF}^{commit}" 2>/dev/null)"; then
+  die "Unable to resolve DigiByte Core ref '${REF}'"
 fi
 
-if ! git -C "$CORE_DIR" checkout "$EXPECTED_REF" --quiet; then
-  die "Unable to checkout $EXPECTED_REF in core submodule."
+CURRENT_COMMIT="$(git rev-parse HEAD)"
+if [[ "${CURRENT_COMMIT}" == "${TARGET_COMMIT}" ]]; then
+  log "core/ already at ${REF} [$(git rev-parse --short HEAD)]"
+else
+  log "Checking out DigiByte Core ref ${REF}"
+  git checkout --detach "${TARGET_COMMIT}"
 fi
 
-ACTIVE_REF=$(git -C "$CORE_DIR" describe --tags --exact-match 2>/dev/null || \
-  git -C "$CORE_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || \
-  git -C "$CORE_DIR" rev-parse --short HEAD)
-
-STATUS="OK"
-if [[ "$ACTIVE_REF" != "$EXPECTED_REF" ]]; then
-  STATUS="MISMATCH"
-fi
+SHORT_COMMIT="$(git rev-parse --short HEAD)"
 
 cat <<SUMMARY
-[Digi-Mobile] DigiByte Core submodule status:
-  Location : $CORE_DIR
-  Expected : $EXPECTED_REF
-  Active   : $ACTIVE_REF
-  Result   : $STATUS
+Digi-Mobile core setup complete.
+Submodule: DigiByte-Core/digibyte
+Checked out ref: ${REF} (commit ${SHORT_COMMIT})
+Note: Digi-Mobile does NOT change DigiByte Core consensus rules; it just uses this version.
 SUMMARY
-
-if [[ "$STATUS" != "OK" ]]; then
-  die "Core submodule is not on the expected reference."
-fi
