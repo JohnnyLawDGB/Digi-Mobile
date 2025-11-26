@@ -55,6 +55,11 @@ Digi-Mobile packages DigiByte Core as a pruned, Android-friendly full node build
 
 Scripts and docs aim to be self-explanatory with clear headers, environment notes, and conservative defaults for small devices. Contributions that improve clarity, comments, and safety checks are welcome—see [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md).
 
+## Security & Privacy
+- Hobby/testing only: do not store large or irreplaceable DigiByte balances here.
+- Consumer Android devices can be lost, stolen, or compromised—protect the device and keep separate backups of any keys.
+- See [`docs/SECURITY-PRIVACY.md`](docs/SECURITY-PRIVACY.md) for full guidance and risk notes.
+
 ## Contributing
 
 Issues and roadmap items live on the [issue tracker](https://github.com/your-org/Digi-Mobile/issues). See [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) for expectations and style notes.

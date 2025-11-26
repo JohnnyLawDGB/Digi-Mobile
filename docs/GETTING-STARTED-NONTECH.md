@@ -23,6 +23,12 @@ Digi-Mobile turns a spare Android phone or tablet into a **pruned DigiByte node*
 - **The maintainers and contributors are not liable for lost funds, data, or anything else.**
 - Digi-Mobile is a hobby/community tool to help the network, not a commercial product.
 
+## Security & Privacy Basics
+- Digi-Mobile should hold only small, replaceable amounts of DigiByte. It is not a primary wallet.
+- Losing the phone or installing malicious apps can expose your node or wallet data, especially on rooted devices.
+- Running a node shares network traffic with peers, so avoid exposing RPC to the internet unless you know how to secure it.
+- Read the full details in [`docs/SECURITY-PRIVACY.md`](./SECURITY-PRIVACY.md).
+
 ## How a non-technical user might actually use this
 1. You have a spare Android phone with USB debugging enabled.
 2. You ask a more technical friend to help. They will:
