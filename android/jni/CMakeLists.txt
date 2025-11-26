@@ -1,15 +1,17 @@
-# JNI bridge for Digi-Mobile. Builds libdigimobile_jni.so so Android clients can
-# call into the native layer. This target is intentionally small and experimental
-# and does not embed DigiByte Core directly; it is meant to pair with the
-# packaged daemon launched by app code.
+cmake_minimum_required(VERSION 3.22)
+project(digimobile_jni LANGUAGES C CXX)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 add_library(digimobile_jni SHARED digimobile_jni.cpp)
 
-find_library(ANDROID_LOG_LIB log)
+find_library(ANDROID_LOG_LIB log REQUIRED)
 
-# Link against Android system logging to surface diagnostics in logcat.
+target_compile_options(digimobile_jni PRIVATE
+    $<$<COMPILE_LANGUAGE:CXX>:-fPIC>
+    $<$<COMPILE_LANGUAGE:C>:-fPIC>
+)
+
 target_link_libraries(digimobile_jni PRIVATE ${ANDROID_LOG_LIB})
-
-# Consumers can import the generated .so via Gradle's externalNativeBuild or by
-# manually bundling it into their APK/AAB. JNI headers are provided by the NDK
-# toolchain configured in the parent project.

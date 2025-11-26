@@ -24,6 +24,10 @@ These steps are for non-technical users who want to try Digi-Mobile on an Androi
 - **What if it does not start?**
   - Close the app and re-open it, then tap **Set up and start node** again. The app will re-check the bundled files and try to start the node.
 
+## Technical details
+
+- The app requests the standard `INTERNET` permission so the DigiByte node can reach peers. This is expected for any full node and is required for the node to function.
+
 ## More resources
 
 - Read the plain-language overview: [`docs/GETTING-STARTED-NONTECH.md`](GETTING-STARTED-NONTECH.md)

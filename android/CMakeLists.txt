@@ -29,10 +29,6 @@ set(DIGIBYTE_CORE_SOURCE_DIR "${CMAKE_CURRENT_LIST_DIR}/../core" CACHE PATH "Pat
 set(DIGIBYTE_CORE_BUILD_DIR "${CMAKE_BINARY_DIR}/core-build-${ANDROID_ABI}")
 set(DIGIBYTE_CORE_PREFIX "${CMAKE_BINARY_DIR}/android-prefix/${ANDROID_ABI}")
 
-if(NOT EXISTS "${DIGIBYTE_CORE_SOURCE_DIR}/src")
-  message(FATAL_ERROR "DigiByte Core sources not found at ${DIGIBYTE_CORE_SOURCE_DIR}. Run scripts/setup-core.sh")
-endif()
-
 set(DGB_HOST_TRIPLE "")
 if(ANDROID_ABI STREQUAL "arm64-v8a")
   set(DGB_HOST_TRIPLE "aarch64-linux-android")
@@ -99,28 +95,34 @@ endif()
 
 find_program(DGB_MAKE_PROGRAM NAMES make gmake REQUIRED)
 
-message(STATUS "[Digi-Mobile] Experimental Android build. Not production-ready.")
-ExternalProject_Add(digibyte_core
-  SOURCE_DIR "${DIGIBYTE_CORE_SOURCE_DIR}"
-  BINARY_DIR "${DIGIBYTE_CORE_BUILD_DIR}"
-  CONFIGURE_COMMAND
-    ${CMAKE_COMMAND} -E env ${DGB_CONFIGURE_ENV}
-    ${DIGIBYTE_CORE_SOURCE_DIR}/autogen.sh
-    COMMAND ${CMAKE_COMMAND} -E env ${DGB_CONFIGURE_ENV}
-    ${DIGIBYTE_CORE_SOURCE_DIR}/configure ${DGB_CONFIGURE_ARGS}
-  BUILD_COMMAND ${CMAKE_COMMAND} -E env ${DGB_CONFIGURE_ENV} ${DGB_MAKE_PROGRAM} -j${DGB_JOB_COUNT}
-  INSTALL_COMMAND ${CMAKE_COMMAND} -E env ${DGB_CONFIGURE_ENV} ${DGB_MAKE_PROGRAM} install
-  USES_TERMINAL_CONFIGURE 1
-  USES_TERMINAL_BUILD 1
-  USES_TERMINAL_INSTALL 1
-)
+# Only configure DigiByte Core if the sources are present. This keeps the JNI
+# build usable even when the upstream tree is not yet synced.
+if(EXISTS "${DIGIBYTE_CORE_SOURCE_DIR}/src")
+  message(STATUS "[Digi-Mobile] Experimental Android build. Not production-ready.")
+  ExternalProject_Add(digibyte_core
+    SOURCE_DIR "${DIGIBYTE_CORE_SOURCE_DIR}"
+    BINARY_DIR "${DIGIBYTE_CORE_BUILD_DIR}"
+    CONFIGURE_COMMAND
+      ${CMAKE_COMMAND} -E env ${DGB_CONFIGURE_ENV}
+      ${DIGIBYTE_CORE_SOURCE_DIR}/autogen.sh
+      COMMAND ${CMAKE_COMMAND} -E env ${DGB_CONFIGURE_ENV}
+      ${DIGIBYTE_CORE_SOURCE_DIR}/configure ${DGB_CONFIGURE_ARGS}
+    BUILD_COMMAND ${CMAKE_COMMAND} -E env ${DGB_CONFIGURE_ENV} ${DGB_MAKE_PROGRAM} -j${DGB_JOB_COUNT}
+    INSTALL_COMMAND ${CMAKE_COMMAND} -E env ${DGB_CONFIGURE_ENV} ${DGB_MAKE_PROGRAM} install
+    USES_TERMINAL_CONFIGURE 1
+    USES_TERMINAL_BUILD 1
+    USES_TERMINAL_INSTALL 1
+  )
 
-add_custom_target(digibyted ALL
-  COMMENT "Building DigiByte Core daemon for Android (${ANDROID_ABI})"
-  DEPENDS digibyte_core
-)
+  add_custom_target(digibyted ALL
+    COMMENT "Building DigiByte Core daemon for Android (${ANDROID_ABI})"
+    DEPENDS digibyte_core
+  )
 
-install(CODE "message(STATUS \"digibyted artifacts are installed under ${DIGIBYTE_CORE_PREFIX}\")")
+  install(CODE "message(STATUS \"digibyted artifacts are installed under ${DIGIBYTE_CORE_PREFIX}\")")
+else()
+  message(WARNING "DigiByte Core sources not found at ${DIGIBYTE_CORE_SOURCE_DIR}; skipping core build")
+endif()
 
 # ---------------------------------------------------------------------------
 # JNI bridge for Android clients
