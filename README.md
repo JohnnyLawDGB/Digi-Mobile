@@ -37,7 +37,11 @@ Digi-Mobile packages DigiByte Core as a pruned, Android-friendly full node build
    ./scripts/setup-core.sh
    ```
    - Optional: override the upstream with `CORE_REMOTE_URL=https://github.com/DigiByte-Core/digibyte.git` (default) or pin a different ref with `CORE_REF=develop`.
-3. Build Android artifacts (defaults: `ARCH=arm64-v8a`, `API=29`):
+3. Re-create the Gradle wrapper JAR (kept as base64 text to avoid binary commits):
+   ```bash
+   ./scripts/prepare-gradle-wrapper.sh
+   ```
+4. Build Android artifacts (defaults: `ARCH=arm64-v8a`, `API=29`):
    ```bash
    ./scripts/build-android.sh
    ```
