@@ -10,4 +10,5 @@ build-android/bin/
 core/build-android-*/
 android/app/src/main/assets/bin/digibyted-arm64
 
+
 gradle/wrapper/gradle-wrapper.jar
