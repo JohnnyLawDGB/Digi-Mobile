@@ -33,6 +33,7 @@ This guide explains how Digi-Mobile builds DigiByte Core's headless daemon for A
 4. **Assemble the Android app**
    ```bash
    cd android
+   # The Gradle wrapper lives at the repo root; a helper script is available inside android/.
    ./gradlew assembleDebug
    ```
    The resulting APK contains the `digibyted` asset, which the app extracts to private storage on first run.

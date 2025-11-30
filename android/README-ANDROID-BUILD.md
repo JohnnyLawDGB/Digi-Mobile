@@ -18,6 +18,7 @@ From the repository root:
 ./scripts/setup-core.sh
 source .versions/android.env.sh
 ./scripts/build-android.sh
+# The Gradle wrapper lives at the repository root; android/ includes a helper script for convenience.
 cd android && ./gradlew assembleDebug
 ```
 

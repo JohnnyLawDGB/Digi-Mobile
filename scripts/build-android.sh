@@ -65,4 +65,4 @@ fi
 shopt -u nullglob
 
 log "digibyted staged to ${JNI_TARGET_DIR}."
-log "Run ./gradlew assembleDebug (from android/) to package the APK with the bundled daemon."
+log "Run ./gradlew assembleDebug (from android/; helper script forwards to repo wrapper) to package the APK with the bundled daemon."

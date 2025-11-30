@@ -76,6 +76,7 @@ Example exports before running Gradle from `android/`:
 export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
 export ANDROID_SDK_ROOT=$HOME/Android/Sdk
 export ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/25.1.8937393
+# The Gradle wrapper resides at the repo root; android/ contains a helper script that forwards to it.
 ./gradlew assembleDebug
 ```
 
