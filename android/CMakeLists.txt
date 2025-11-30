@@ -29,7 +29,6 @@ set(DIGIBYTE_CORE_SOURCE_DIR "${CMAKE_CURRENT_LIST_DIR}/../core" CACHE PATH "Pat
 set(DIGIBYTE_CORE_BUILD_DIR "${CMAKE_BINARY_DIR}/core-build-${ANDROID_ABI}")
 set(DIGIBYTE_CORE_PREFIX "${CMAKE_BINARY_DIR}/android-prefix/${ANDROID_ABI}")
 set(DGB_DEPENDS_DIR "${DIGIBYTE_CORE_SOURCE_DIR}/depends")
-set(DGB_DEPENDS_CONFIG_SITE "${DGB_DEPENDS_DIR}/${DGB_HOST_TRIPLE}/share/config.site")
 
 set(DGB_HOST_TRIPLE "")
 if(ANDROID_ABI STREQUAL "arm64-v8a")
@@ -39,6 +38,8 @@ elseif(ANDROID_ABI STREQUAL "armeabi-v7a")
 else()
   message(FATAL_ERROR "Unsupported ANDROID_ABI: ${ANDROID_ABI}")
 endif()
+
+set(DGB_DEPENDS_CONFIG_SITE "${DGB_DEPENDS_DIR}/${DGB_HOST_TRIPLE}/share/config.site")
 
 # Common flags aim for small binaries; GUI and bench/test targets are disabled to
 # shorten Android build times.
