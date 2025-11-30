@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Helper wrapper to invoke the repository Gradle wrapper from within the android/ directory.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+exec "${SCRIPT_DIR}/../gradlew" "$@"
