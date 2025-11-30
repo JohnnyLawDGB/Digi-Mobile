@@ -23,6 +23,10 @@ These steps are for non-technical users who want to try Digi-Mobile on an Androi
   - Android shows this when you sideload (install from outside the Play Store). Use a device you are comfortable experimenting with.
 - **What if it does not start?**
   - Close the app and re-open it, then tap **Set up and start node** again. The app will re-check the bundled files and try to start the node.
+- **Does this work on every phone?**
+  - The APK ships only an **arm64-v8a** native library and daemon. 64-bit Android devices (most modern flagships) are supported; 32-bit-only devices will crash on launch with a missing-library error. If the app closes immediately on tap, verify your device reports arm64/aarch64 under its CPU/ABI info before retrying.
+- **Why is there no console/terminal in the app?**
+  - Digi-Mobile intentionally ships a simple single-screen activity that boots the bundled DigiByte daemon as a foreground service. It shows status text and a toast after you tap **Set up and start node** but does not expose an interactive CLI. To run RPC/CLI commands you must use external tools (e.g., `adb logcat`, `adb shell`, or a separate client) against the running service.
 
 ## Technical details
 
