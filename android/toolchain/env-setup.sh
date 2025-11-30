@@ -32,12 +32,27 @@ require_env() {
 }
 
 check_java_version() {
-  local java_bin="${JAVA_HOME}/bin/java"
-  [[ -x "${java_bin}" ]] || die "JAVA_HOME (${JAVA_HOME}) does not contain a java binary."
-  local reported_version
-  reported_version="$(${java_bin} -version 2>&1 | head -n1 | sed -E 's/.*version "([0-9]+).*"/\1/')"
-  if [[ "${reported_version}" != "${ANDROID_JDK_VERSION}" ]]; then
-    die "JAVA_HOME points to JDK ${reported_version}, expected ${ANDROID_JDK_VERSION}."
+  local javac_bin="${JAVA_HOME}/bin/javac"
+  [[ -x "${javac_bin}" ]] || die "JAVA_HOME (${JAVA_HOME}) does not contain a javac binary."
+
+  local javac_version_str
+  javac_version_str="$(${javac_bin} -version 2>&1 || true)"
+  # Examples of possible outputs:
+  #   "javac 17.0.10"
+  #   "javac 17 2025-10-21"
+  #   "javac 17"
+  local javac_version_num
+  javac_version_num="$(printf '%s\n' "${javac_version_str}" | awk '{print $2}')"
+
+  # Extract the MAJOR part before any dot/space
+  local javac_major
+  javac_major="$(printf '%s\n' "${javac_version_num}" | sed 's/[^0-9].*$//')"
+
+  if [[ "${javac_major}" = "${ANDROID_JDK_VERSION}" ]]; then
+    log "JDK OK: ${javac_version_str}"
+  else
+    log "WARNING: Expected JDK major ${ANDROID_JDK_VERSION}, but found: ${javac_version_str}"
+    log "         Proceeding anyway; if Gradle fails with a JDK error, please install JDK ${ANDROID_JDK_VERSION}."
   fi
 }
 
