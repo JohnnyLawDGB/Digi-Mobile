@@ -21,6 +21,8 @@ source .versions/android.env.sh
 cd android && ./gradlew assembleDebug
 ```
 
+`build-android.sh` runs DigiByte Core's `depends` build (with QT disabled) before invoking Autotools so that libevent and other native dependencies are built for the Android toolchain automatically.
+
 Artifacts appear in `android/app/src/main/jniLibs/arm64-v8a/` after `build-android.sh` runs.
 
 ## Build flags

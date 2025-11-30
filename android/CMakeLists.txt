@@ -28,6 +28,8 @@ endif()
 set(DIGIBYTE_CORE_SOURCE_DIR "${CMAKE_CURRENT_LIST_DIR}/../core" CACHE PATH "Path to DigiByte Core sources")
 set(DIGIBYTE_CORE_BUILD_DIR "${CMAKE_BINARY_DIR}/core-build-${ANDROID_ABI}")
 set(DIGIBYTE_CORE_PREFIX "${CMAKE_BINARY_DIR}/android-prefix/${ANDROID_ABI}")
+set(DGB_DEPENDS_DIR "${DIGIBYTE_CORE_SOURCE_DIR}/depends")
+set(DGB_DEPENDS_CONFIG_SITE "${DGB_DEPENDS_DIR}/${DGB_HOST_TRIPLE}/share/config.site")
 
 set(DGB_HOST_TRIPLE "")
 if(ANDROID_ABI STREQUAL "arm64-v8a")
@@ -70,6 +72,10 @@ set(DGB_CONFIGURE_ENV
   "LDFLAGS=${CMAKE_EXE_LINKER_FLAGS} ${DGB_COMMON_LDFLAGS}"
 )
 
+if(EXISTS "${DGB_DEPENDS_DIR}")
+  list(APPEND DGB_CONFIGURE_ENV "CONFIG_SITE=${DGB_DEPENDS_CONFIG_SITE}")
+endif()
+
 set(DGB_CONFIGURE_ARGS
   "--host=${DGB_HOST_TRIPLE}"
   "--prefix=${DIGIBYTE_CORE_PREFIX}"
@@ -99,6 +105,22 @@ find_program(DGB_MAKE_PROGRAM NAMES make gmake REQUIRED)
 # build usable even when the upstream tree is not yet synced.
 if(EXISTS "${DIGIBYTE_CORE_SOURCE_DIR}/src")
   message(STATUS "[Digi-Mobile] Experimental Android build. Not production-ready.")
+
+  if(NOT EXISTS "${DGB_DEPENDS_DIR}/Makefile")
+    message(FATAL_ERROR "DigiByte Core depends tree not found at ${DGB_DEPENDS_DIR}; run scripts/setup-core.sh to fetch upstream sources.")
+  endif()
+
+  ExternalProject_Add(digibyte_depends
+    SOURCE_DIR "${DGB_DEPENDS_DIR}"
+    BINARY_DIR "${DGB_DEPENDS_DIR}"
+    CONFIGURE_COMMAND ""
+    BUILD_COMMAND ${CMAKE_COMMAND} -E env ${DGB_CONFIGURE_ENV} ${DGB_MAKE_PROGRAM} -C ${DGB_DEPENDS_DIR} HOST=${DGB_HOST_TRIPLE} NO_QT=1 -j${DGB_JOB_COUNT}
+    INSTALL_COMMAND ""
+    BUILD_ALWAYS 1
+    BUILD_IN_SOURCE 1
+    USES_TERMINAL_BUILD 1
+  )
+
   ExternalProject_Add(digibyte_core
     SOURCE_DIR "${DIGIBYTE_CORE_SOURCE_DIR}"
     BINARY_DIR "${DIGIBYTE_CORE_BUILD_DIR}"
@@ -109,6 +131,7 @@ if(EXISTS "${DIGIBYTE_CORE_SOURCE_DIR}/src")
       ${DIGIBYTE_CORE_SOURCE_DIR}/configure ${DGB_CONFIGURE_ARGS}
     BUILD_COMMAND ${CMAKE_COMMAND} -E env ${DGB_CONFIGURE_ENV} ${DGB_MAKE_PROGRAM} -j${DGB_JOB_COUNT}
     INSTALL_COMMAND ${CMAKE_COMMAND} -E env ${DGB_CONFIGURE_ENV} ${DGB_MAKE_PROGRAM} install
+    DEPENDS digibyte_depends
     USES_TERMINAL_CONFIGURE 1
     USES_TERMINAL_BUILD 1
     USES_TERMINAL_INSTALL 1
