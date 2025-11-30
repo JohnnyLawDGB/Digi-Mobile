@@ -4,7 +4,9 @@
 
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
+# Resolve repository root even when invoked via a symlink or from PATH.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 VERSIONS_FILE="${VERSIONS_FILE:-${ROOT_DIR}/.versions/android.env.sh}"
 
 log() {
