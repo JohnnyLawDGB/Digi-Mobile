@@ -10,10 +10,16 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/jni-lib/${ANDROID_ABI})
 add_library(digimobile_jni SHARED digimobile_jni.cpp)
 
 find_library(ANDROID_LOG_LIB log REQUIRED)
+find_library(ANDROID_LIB android REQUIRED)
 
 target_compile_options(digimobile_jni PRIVATE
     $<$<COMPILE_LANGUAGE:CXX>:-fPIC>
     $<$<COMPILE_LANGUAGE:C>:-fPIC>
 )
 
-target_link_libraries(digimobile_jni PRIVATE ${ANDROID_LOG_LIB})
+target_link_libraries(digimobile_jni PRIVATE
+    ${ANDROID_LIB}
+    ${ANDROID_LOG_LIB}
+    atomic
+    m
+)
