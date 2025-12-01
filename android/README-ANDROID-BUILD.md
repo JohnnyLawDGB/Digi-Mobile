@@ -26,6 +26,26 @@ cd android && ./gradlew assembleDebug
 
 Artifacts appear in `android/app/src/main/jniLibs/arm64-v8a/` after `build-android.sh` runs.
 
+## Packaging the JNI bridge into the Android app
+
+1. Decode the Gradle wrapper JAR if you haven't already:
+   ```bash
+   ./scripts/prepare-gradle-wrapper.sh
+   ```
+2. Ensure your Android SDK/NDK paths are available to Gradle via `ANDROID_SDK_ROOT` / `ANDROID_NDK_HOME` or `local.properties`.
+3. Build the APKs (Gradle drives CMake to compile `libdigimobile_jni.so` for `arm64-v8a` and `armeabi-v7a`):
+   ```bash
+   ./gradlew :android:app:assembleDebug
+   ./gradlew :android:app:assembleRelease
+   ```
+4. Verify the shared library is packaged in the APK (example for debug):
+   ```bash
+   unzip -l android/app/build/outputs/apk/debug/app-debug.apk | grep digimobile_jni
+   ```
+   You should see `lib/arm64-v8a/libdigimobile_jni.so` (and `armeabi-v7a` if that ABI was built).
+5. For Samsung SM-N950U (64-bit) builds, keep the default `arm64-v8a` ABI filter in `android/app/build.gradle`; `armeabi-v7a` is
+   also produced for older 32-bit devices.
+
 ## Build flags
 - Size-focused defaults: `-Os -ffunction-sections -fdata-sections` with `--gc-sections` during link.
 - GUI, tests, man pages, benchmarks, miniupnpc, and ZMQ are disabled to keep the Android daemon lean.
