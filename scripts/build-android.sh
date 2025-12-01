@@ -36,6 +36,7 @@ ANDROID_PREFIX="${CMAKE_BUILD_DIR}/android-prefix/${ANDROID_ABI}"
 BIN_DIR="${ANDROID_PREFIX}/bin"
 LIB_DIR="${ANDROID_PREFIX}/lib"
 JNI_TARGET_DIR="${JNI_LIBS_DIR}/${ANDROID_ABI}"
+JNI_SO_SOURCE="${CMAKE_BUILD_DIR}/jni-lib/${ANDROID_ABI}/libdigimobile_jni.so"
 
 log "Configuring DigiByte Core build via CMake (${ANDROID_ABI}, android-${ANDROID_NDK_API_LEVEL})"
 cmake -S "${ROOT_DIR}/android" -B "${CMAKE_BUILD_DIR}" \
@@ -47,7 +48,11 @@ cmake -S "${ROOT_DIR}/android" -B "${CMAKE_BUILD_DIR}" \
 log "Building digibyted for Android"
 cmake --build "${CMAKE_BUILD_DIR}" --target digibyted
 
+log "Building JNI bridge (libdigimobile_jni.so)"
+cmake --build "${CMAKE_BUILD_DIR}" --target digimobile_jni
+
 [[ -d "${BIN_DIR}" ]] || die "digibyted binary missing at ${BIN_DIR}; CMake install step may have failed."
+[[ -f "${JNI_SO_SOURCE}" ]] || die "JNI shared library missing at ${JNI_SO_SOURCE}; JNI build may have failed."
 
 log "Staging native artifacts into ${JNI_TARGET_DIR}"
 mkdir -p "${JNI_TARGET_DIR}"
@@ -56,6 +61,8 @@ for binary in "${BIN_DIR}"/*; do
   cp "${binary}" "${JNI_TARGET_DIR}/"
   log "Copied $(basename "${binary}")"
 done
+cp "${JNI_SO_SOURCE}" "${JNI_TARGET_DIR}/"
+log "Copied $(basename "${JNI_SO_SOURCE}")"
 if [[ -d "${LIB_DIR}" ]]; then
   for so in "${LIB_DIR}"/*.so; do
     cp "${so}" "${JNI_TARGET_DIR}/"
@@ -66,3 +73,4 @@ shopt -u nullglob
 
 log "digibyted staged to ${JNI_TARGET_DIR}."
 log "Run ./gradlew assembleDebug (from android/; helper script forwards to repo wrapper) to package the APK with the bundled daemon."
+log "APK outputs: android/app/build/outputs/apk/debug/app-debug.apk and android/app/build/outputs/apk/release/app-release.apk"
