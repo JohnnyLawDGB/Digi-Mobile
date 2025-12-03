@@ -25,7 +25,7 @@ android {
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
 
         ndk {
-            abiFilters targetAbis
+            abiFilters.addAll(targetAbis)
         }
 
         externalNativeBuild {
