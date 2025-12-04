@@ -37,6 +37,7 @@ BIN_DIR="${ANDROID_PREFIX}/bin"
 LIB_DIR="${ANDROID_PREFIX}/lib"
 JNI_TARGET_DIR="${JNI_LIBS_DIR}/${ANDROID_ABI}"
 JNI_SO_SOURCE="${CMAKE_BUILD_DIR}/jni-lib/${ANDROID_ABI}/libdigimobile_jni.so"
+ASSET_BIN_DIR="${ROOT_DIR}/android/app/src/main/assets/bin"
 
 log "Configuring DigiByte Core build via CMake (${ANDROID_ABI}, android-${ANDROID_NDK_API_LEVEL})"
 cmake -S "${ROOT_DIR}/android" -B "${CMAKE_BUILD_DIR}" \
@@ -72,5 +73,9 @@ fi
 shopt -u nullglob
 
 log "digibyted staged to ${JNI_TARGET_DIR}."
+log "Copying digibyted into APK assets at ${ASSET_BIN_DIR}"
+mkdir -p "${ASSET_BIN_DIR}"
+cp "${BIN_DIR}/digibyted" "${ASSET_BIN_DIR}/digibyted-arm64"
+log "Copied digibyted-arm64 asset"
 log "Run ./gradlew assembleDebug (from android/; helper script forwards to repo wrapper) to package the APK with the bundled daemon."
 log "APK outputs: android/app/build/outputs/apk/debug/app-debug.apk and android/app/build/outputs/apk/release/app-release.apk"
