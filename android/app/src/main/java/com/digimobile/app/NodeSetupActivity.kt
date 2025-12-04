@@ -14,11 +14,12 @@ import com.digimobile.app.databinding.ActivityNodeSetupBinding
 import com.digimobile.node.NodeManager
 import com.digimobile.node.NodeManagerProvider
 import com.digimobile.node.NodeDiagnostics
+import com.digimobile.node.NodeStatusSnapshot
 import com.digimobile.node.NodeState
 import com.digimobile.node.toUserMessage
 import java.util.ArrayDeque
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class NodeSetupActivity : AppCompatActivity() {
@@ -41,9 +42,11 @@ class NodeSetupActivity : AppCompatActivity() {
         nodeManager = NodeManagerProvider.get(applicationContext)
 
         setupLogsPlaceholder()
+        setupDeveloperInfo()
         updateHelperText(NodeState.Idle)
         observeNodeState()
         observeLogs()
+        refreshDeveloperInfo()
     }
 
     private fun setupLogsPlaceholder() {
@@ -106,23 +109,21 @@ class NodeSetupActivity : AppCompatActivity() {
         if (!isRunningState(state) || isRunningState(previousState)) return
 
         diagnosticsLogged = true
-        lifecycleScope.launch(Dispatchers.IO) {
-            val snapshot = nodeManager.getStatusSnapshot()
+        lifecycleScope.launch {
+            val snapshot = withContext(Dispatchers.IO) { nodeManager.getStatusSnapshot() }
             val debugLogFile = NodeDiagnostics.getDebugLogFile(snapshot.datadir)
-            val tail = NodeDiagnostics.tailDebugLog(snapshot.datadir, maxLines = 50)
+            val tail = withContext(Dispatchers.IO) {
+                NodeDiagnostics.tailDebugLog(snapshot.datadir, maxLines = 50)
+            }
+
+            withContext(Dispatchers.Main) { updateDeveloperInfo(snapshot) }
 
             val message: String
             val linesToAppend: List<String>
 
-            if (snapshot.hasDebugLog) {
-                if (tail.isNotEmpty()) {
-                    message =
-                        "Debug log found at ${debugLogFile.absolutePath}; showing last ${tail.size} lines below…"
-                    linesToAppend = tail
-                } else {
-                    message = "Debug log found at ${debugLogFile.absolutePath}; no log entries yet."
-                    linesToAppend = emptyList()
-                }
+            if (snapshot.debugLogExists) {
+                message = "Debug log found at ${debugLogFile.absolutePath}; use tail view below for recent lines"
+                linesToAppend = tail
             } else {
                 message = "No debug.log yet; node may still be initializing."
                 linesToAppend = emptyList()
@@ -145,6 +146,32 @@ class NodeSetupActivity : AppCompatActivity() {
             logBuffer.removeFirst()
         }
         binding.textLogs.text = logBuffer.joinToString(separator = "\n")
+    }
+
+    private fun setupDeveloperInfo() {
+        binding.layoutDeveloperInfoHeader.setOnClickListener {
+            binding.layoutDeveloperInfoBody.isVisible = !binding.layoutDeveloperInfoBody.isVisible
+            binding.textDeveloperInfoToggle.text = if (binding.layoutDeveloperInfoBody.isVisible) {
+                "Hide"
+            } else {
+                "Show"
+            }
+        }
+    }
+
+    private fun refreshDeveloperInfo() {
+        lifecycleScope.launch {
+            val snapshot = withContext(Dispatchers.IO) { nodeManager.getStatusSnapshot() }
+            withContext(Dispatchers.Main) { updateDeveloperInfo(snapshot) }
+        }
+    }
+
+    private fun updateDeveloperInfo(snapshot: NodeStatusSnapshot) {
+        binding.textDeveloperDatadir.text = "Datadir: ${snapshot.datadir.absolutePath}"
+        binding.textDeveloperConf.text =
+            "digibyte.conf: ${if (snapshot.confExists) "exists" else "absent"}"
+        binding.textDeveloperDebugLog.text =
+            "debug.log: ${if (snapshot.debugLogExists) "exists" else "absent"}"
     }
 
     private fun updateProgress(state: NodeState) {

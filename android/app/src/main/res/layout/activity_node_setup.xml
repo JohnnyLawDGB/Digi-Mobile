@@ -207,6 +207,58 @@
             android:layout_marginTop="16dp"
             android:text="Details / Logs" />
 
+        <LinearLayout
+            android:id="@+id/layoutDeveloperInfoHeader"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:background="#EEEEEE"
+            android:orientation="horizontal"
+            android:padding="8dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Developer info"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/textDeveloperInfoToggle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Hide" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/layoutDeveloperInfoBody"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="#F5F5F5"
+            android:orientation="vertical"
+            android:padding="8dp">
+
+            <TextView
+                android:id="@+id/textDeveloperDatadir"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Datadir: loading…" />
+
+            <TextView
+                android:id="@+id/textDeveloperConf"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="digibyte.conf: checking…" />
+
+            <TextView
+                android:id="@+id/textDeveloperDebugLog"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="debug.log: checking…" />
+        </LinearLayout>
+
         <TextView
             android:id="@+id/textLogs"
             android:layout_width="match_parent"

@@ -361,8 +361,8 @@ class NodeManager(
 
         return NodeStatusSnapshot(
             datadir = dataDir,
-            hasConfig = configFile.exists(),
-            hasDebugLog = debugLogFile.exists()
+            confExists = configFile.exists(),
+            debugLogExists = debugLogFile.exists()
         )
     }
 
@@ -401,6 +401,6 @@ class NodeManager(
 
 data class NodeStatusSnapshot(
     val datadir: File,
-    val hasConfig: Boolean,
-    val hasDebugLog: Boolean,
+    val confExists: Boolean,
+    val debugLogExists: Boolean,
 )
