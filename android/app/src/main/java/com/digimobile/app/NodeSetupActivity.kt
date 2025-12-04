@@ -82,7 +82,11 @@ class NodeSetupActivity : AppCompatActivity() {
             appendLogLine("Error detail: ${state.message}")
         }
         if (state is NodeState.Ready && previousState !is NodeState.Ready) {
-            nodeManager.appendLog("Node is ready to accept CLI commands.")
+            if (nodeManager.cliAvailable) {
+                nodeManager.appendLog("Node is ready to accept CLI commands.")
+            } else {
+                nodeManager.appendLog("Node is synced, but digibyte-cli is not available in this build.")
+            }
             Toast.makeText(this, "Node is fully synced and ready", Toast.LENGTH_SHORT).show()
         }
         updateProgress(state)
