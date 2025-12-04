@@ -33,10 +33,13 @@ This guide explains how Digi-Mobile builds DigiByte Core's headless daemon for A
 4. **Assemble the Android app**
    ```bash
    cd android
-   # The Gradle wrapper lives at the repo root; a helper script is available inside android/.
-   ./gradlew assembleDebug
+   # Force the arm64 build on emulators that default to x86/x86_64:
+   ANDROID_ABI=arm64-v8a ./gradlew assembleDebug
    ```
    The resulting APK contains the `digibyted` asset, which the app extracts to private storage on first run.
+   Gradle will now fail early if `android/app/src/main/assets/bin/digibyted-arm64` is missing; rerun `./scripts/build-android.sh`
+   to stage the binary before packaging. If you need to bypass the prebuild guard temporarily (e.g., when iterating on unrelated
+   UI code), append `-Pdigibyted.verifyAsset=false` to your Gradle invocation.
 
 ## Runtime behavior
 - On launch, the JNI bridge copies the `digibyted-arm64` asset into `<filesDir>/bin/digibyted` and marks it executable.
