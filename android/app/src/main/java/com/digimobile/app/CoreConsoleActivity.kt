@@ -62,10 +62,15 @@ class CoreConsoleActivity : AppCompatActivity() {
                 nodeManager.nodeState.collect { state ->
                     lastNodeState = state
                     binding.textStatus.text = "Node status: ${state.toUserMessage()}"
-                    if (state !is NodeState.Ready) {
+                    if (state is NodeState.Idle || state is NodeState.Error) {
+                        showWarning("Node is not running. Restart it from the main screen.")
+                        setCommandInputEnabled(false)
+                    } else if (state !is NodeState.Ready) {
                         showWarning("Node must be running and synced before sending commands.")
+                        setCommandInputEnabled(false)
                     } else {
                         hideWarning()
+                        setCommandInputEnabled(true)
                     }
                 }
             }
@@ -154,6 +159,11 @@ class CoreConsoleActivity : AppCompatActivity() {
         binding.scrollConsole.post {
             binding.scrollConsole.fullScroll(View.FOCUS_DOWN)
         }
+    }
+
+    private fun setCommandInputEnabled(enabled: Boolean) {
+        binding.buttonSend.isEnabled = enabled
+        binding.inputCommand.isEnabled = enabled
     }
 
     private fun showWarning(message: String) {

@@ -4,6 +4,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.text.method.ScrollingMovementMethod
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.isVisible
 import androidx.lifecycle.Lifecycle
@@ -69,7 +70,12 @@ class NodeSetupActivity : AppCompatActivity() {
     }
 
     private fun updateStatus(state: NodeState, previousState: NodeState) {
-        binding.textMainStatus.text = state.toUserMessage()
+        binding.textMainStatus.text = when {
+            state is NodeState.Idle && previousState !is NodeState.Idle -> {
+                "Node stopped. You can restart it from the main screen."
+            }
+            else -> state.toUserMessage()
+        }
         if (state is NodeState.Ready && previousState !is NodeState.Ready) {
             nodeManager.appendLog("Node is ready to accept CLI commands.")
             Toast.makeText(this, "Node is fully synced and ready", Toast.LENGTH_SHORT).show()
@@ -193,10 +199,8 @@ class NodeSetupActivity : AppCompatActivity() {
             NodeState.ConnectingToPeers,
             is NodeState.Syncing -> {
                 binding.buttonAction.text = "Stop node"
-                binding.buttonAction.setOnClickListener {
-                    nodeManager.stopNode()
-                    finish()
-                }
+                binding.buttonAction.isEnabled = true
+                binding.buttonAction.setOnClickListener { confirmStopNode() }
             }
             NodeState.Ready -> {
                 binding.buttonAction.text = "Open core console"
@@ -210,6 +214,27 @@ class NodeSetupActivity : AppCompatActivity() {
                 binding.buttonAction.text = "Back"
                 binding.buttonAction.setOnClickListener { finish() }
             }
+        }
+    }
+
+    private fun confirmStopNode() {
+        AlertDialog.Builder(this)
+            .setTitle("Stop DigiByte node?")
+            .setMessage("This will shut down the DigiByte daemon. You can restart it from the main screen.")
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Stop") { _, _ ->
+                sendStopIntent()
+                lifecycleScope.launch { nodeManager.stopNode() }
+            }
+            .show()
+    }
+
+    private fun sendStopIntent() {
+        val stopIntent = Intent(this, NodeService::class.java).apply { action = NodeService.ACTION_STOP }
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            startForegroundService(stopIntent)
+        } else {
+            startService(stopIntent)
         }
     }
 }
