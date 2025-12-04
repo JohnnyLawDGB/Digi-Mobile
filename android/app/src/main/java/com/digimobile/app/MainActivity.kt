@@ -9,6 +9,7 @@ import androidx.lifecycle.lifecycleScope
 import com.digimobile.app.databinding.ActivityMainBinding
 import com.digimobile.node.DigiMobileNodeController
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -60,15 +61,7 @@ class MainActivity : AppCompatActivity() {
                     updateStatusLabel("Starting node service...")
                 }
 
-                val status = nodeController.statusText()
-                withContext(Dispatchers.Main) {
-                    updateStatusLabel(status)
-                    Toast.makeText(
-                        this@MainActivity,
-                        "Node service started. Status: $status\nConfig: ${paths.configFile.absolutePath}",
-                        Toast.LENGTH_LONG
-                    ).show()
-                }
+                observeNodeStartup(paths)
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
                     updateStatusLabel("Failed to start: ${e.message}")
@@ -80,6 +73,42 @@ class MainActivity : AppCompatActivity() {
                     ).show()
                 }
             }
+        }
+    }
+
+    private fun observeNodeStartup(paths: NodeBootstrapper.NodePaths) {
+        lifecycleScope.launch {
+            var lastStatus = "UNKNOWN"
+            repeat(15) {
+                lastStatus = withContext(Dispatchers.IO) { nodeController.statusText() }
+                updateStatusLabel(lastStatus)
+
+                val statusUpper = lastStatus.uppercase()
+                if (statusUpper == "RUNNING") {
+                    binding.buttonStartNode.isEnabled = false
+                    binding.buttonStartNode.text = "Node running"
+                    binding.textSteps.text =
+                        "Node is running in the background. Config: ${paths.configFile.absolutePath}\nLogs: ${paths.logsDir.absolutePath}\nLeave the app open for initial sync."
+                    Toast.makeText(
+                        this@MainActivity,
+                        "Node service started. Status: $lastStatus",
+                        Toast.LENGTH_LONG
+                    ).show()
+                    return@launch
+                }
+
+                delay(1_000)
+            }
+
+            binding.buttonStartNode.isEnabled = true
+            binding.buttonStartNode.text = "Retry start"
+            binding.textSteps.text =
+                "Node did not report RUNNING. Status: $lastStatus\nCheck that the digibyted asset is present and review logs at ${paths.logsDir.absolutePath}."
+            Toast.makeText(
+                this@MainActivity,
+                "Node status did not reach RUNNING (last: $lastStatus)",
+                Toast.LENGTH_LONG
+            ).show()
         }
     }
 
