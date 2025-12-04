@@ -28,6 +28,7 @@ class NodeManager(
     val nodeState: StateFlow<NodeState> get() = _nodeState
 
     private var lastNodePaths: NodeBootstrapper.NodePaths? = null
+    private var cliAvailability: CliAvailability = CliAvailability.Unknown
 
     private val _logLines = MutableSharedFlow<String>(
         extraBufferCapacity = 100,
@@ -40,6 +41,7 @@ class NodeManager(
             updateState(NodeState.PreparingEnvironment, "Preparing environment…")
             val paths = bootstrapper.ensureBootstrap()
             lastNodePaths = paths
+            ensureCliAvailable()
 
             updateState(NodeState.DownloadingBinaries(progress = 100), "Downloading binaries (100%)…")
             updateState(NodeState.VerifyingBinaries, "Verifying binaries…")
@@ -70,13 +72,14 @@ class NodeManager(
             return@withContext
         }
 
-        val cliBinary = File(context.filesDir, "bin/digibyte-cli")
-        if (!cliBinary.exists()) {
-            val message = "digibyte-cli is missing; cannot send stop command"
+        if (!ensureCliAvailable()) {
+            val message = "digibyte-cli is not available; cannot send stop command"
             appendLog("Error: $message")
             _nodeState.value = NodeState.Error(message)
             return@withContext
         }
+
+        val cliBinary = File(context.filesDir, "bin/digibyte-cli")
 
         try {
             appendLog("Stopping DigiByte daemon…")
@@ -147,10 +150,11 @@ class NodeManager(
                 }
             }
 
-            val blockchainInfo = queryBlockchainInfo(paths)
-            val targetHeight = blockchainInfo?.targetHeight ?: 0L
-            val currentHeight = blockchainInfo?.blocks ?: 0L
-            val progress = blockchainInfo?.progressPercent() ?: 0.0
+            val cliAvailable = ensureCliAvailable()
+            val blockchainInfo = if (cliAvailable) queryBlockchainInfo(paths) else null
+            val targetHeight = blockchainInfo?.targetHeight
+            val currentHeight = blockchainInfo?.blocks
+            val progress = blockchainInfo?.progressPercent()
 
             val isSynced = blockchainInfo?.let { info ->
                 info.progressPercent() >= READY_THRESHOLD_PERCENT ||
@@ -160,7 +164,7 @@ class NodeManager(
             val nextState = if (isSynced) {
                 NodeState.Ready
             } else {
-                NodeState.Syncing(progress.roundToInt(), currentHeight, targetHeight)
+                NodeState.Syncing(progress?.roundToInt(), currentHeight, targetHeight)
             }
 
             val currentState = _nodeState.value
@@ -168,7 +172,7 @@ class NodeManager(
                 val logMessage = if (isSynced) {
                     "Node is fully synced and ready"
                 } else {
-                    "Syncing: height $currentHeight / $targetHeight (${progress.roundToInt()}%)"
+                    formatSyncLog(currentHeight, targetHeight, progress)
                 }
                 updateState(nextState, logMessage)
             } else if (nextState is NodeState.Syncing && currentState is NodeState.Syncing) {
@@ -176,7 +180,7 @@ class NodeManager(
                     currentState.currentHeight != nextState.currentHeight ||
                     currentState.targetHeight != nextState.targetHeight
                 ) {
-                    updateState(nextState, "Syncing: height $currentHeight / $targetHeight (${progress.roundToInt()}%)")
+                    updateState(nextState, formatSyncLog(currentHeight, targetHeight, progress))
                 }
             }
 
@@ -187,10 +191,7 @@ class NodeManager(
     private fun queryBlockchainInfo(paths: NodeBootstrapper.NodePaths): BlockchainInfo? {
         return runCatching {
             val cliBinary = File(context.filesDir, "bin/digibyte-cli")
-            if (!cliBinary.exists()) {
-                appendLog("digibyte-cli is missing at ${cliBinary.absolutePath}")
-                return null
-            }
+            if (!cliBinary.exists()) return null
             val confArg = "-conf=${paths.configFile.absolutePath}"
             val datadirArg = "-datadir=${paths.dataDir.absolutePath}"
             val process = ProcessBuilder(
@@ -242,6 +243,38 @@ class NodeManager(
         private const val READY_THRESHOLD_PERCENT = 99.9
         private const val STOP_TIMEOUT_MS = 30_000L
         private const val STOP_POLL_DELAY_MS = 1_000L
+    }
+
+    private fun ensureCliAvailable(): Boolean {
+        if (cliAvailability == CliAvailability.Available) return true
+        if (cliAvailability == CliAvailability.Missing) return false
+
+        val cliBinary = bootstrapper.ensureCliBinary()
+        val isPresent = cliBinary?.exists() == true
+        if (isPresent) {
+            cliAvailability = CliAvailability.Available
+            return true
+        }
+
+        appendLog("digibyte-cli is not available in this build; falling back to basic sync state.")
+        cliAvailability = CliAvailability.Missing
+        return false
+    }
+
+    private fun formatSyncLog(currentHeight: Long?, targetHeight: Long?, progress: Double?): String {
+        val progressText = progress?.roundToInt()?.let { "$it%" } ?: "progress unknown"
+        val heightText = if (currentHeight != null && targetHeight != null) {
+            "$currentHeight / $targetHeight"
+        } else {
+            "height unknown"
+        }
+        return "Syncing: height $heightText ($progressText)"
+    }
+
+    private enum class CliAvailability {
+        Unknown,
+        Available,
+        Missing
     }
 
     fun appendLog(message: String) {

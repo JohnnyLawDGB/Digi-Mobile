@@ -101,13 +101,17 @@ class NodeSetupActivity : AppCompatActivity() {
         }
     }
 
-    private fun showProgress(progress: Int) {
+    private fun showProgress(progress: Int?) {
         binding.progressBar.isVisible = true
-        binding.progressBar.progress = progress
+        binding.progressBar.isIndeterminate = progress == null
+        if (progress != null) {
+            binding.progressBar.progress = progress
+        }
     }
 
     private fun hideProgress() {
         binding.progressBar.isVisible = false
+        binding.progressBar.isIndeterminate = false
     }
 
     private fun updateSteps(state: NodeState, previousState: NodeState) {
