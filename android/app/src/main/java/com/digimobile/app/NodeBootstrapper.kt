@@ -22,18 +22,52 @@ class NodeBootstrapper(private val context: Context) {
         val configDir = context.getDir("config", Context.MODE_PRIVATE)
         val dataDir = context.getDir("data", Context.MODE_PRIVATE)
         val logsDir = context.getDir("logs", Context.MODE_PRIVATE)
+        val binDir = File(context.filesDir, "bin")
 
         configDir.mkdirs()
         dataDir.mkdirs()
         logsDir.mkdirs()
+        binDir.mkdirs()
 
         val configFile = File(configDir, "digimobile-pruned.conf")
         if (!configFile.exists()) {
             copyDefaultConfig(configFile, dataDir, logsDir)
         }
 
+        ensureCliBinary()
+
         prefs.edit().putBoolean(KEY_BOOTSTRAP_COMPLETE, true).apply()
         return NodePaths(configFile, dataDir, logsDir)
+    }
+
+    fun ensureCliBinary(): File? {
+        val binDir = File(context.filesDir, "bin")
+        binDir.mkdirs()
+
+        val cliBinary = File(binDir, "digibyte-cli")
+        if (cliBinary.exists()) {
+            cliBinary.setExecutable(true, /* ownerOnly= */ true)
+            return cliBinary
+        }
+
+        return try {
+            context.assets.open(CLI_ASSET_PATH).use { input ->
+                cliBinary.outputStream().use { output ->
+                    input.copyTo(output)
+                }
+            }
+            cliBinary.setExecutable(true, /* ownerOnly= */ true)
+            cliBinary
+        } catch (e: Exception) {
+            if (!cliMissingLogged) {
+                Log.w(
+                    TAG,
+                    "digibyte-cli asset missing; TODO: add digibyte-cli to assets/bin for console and RPC support."
+                )
+                cliMissingLogged = true
+            }
+            null
+        }
     }
 
     private fun copyDefaultConfig(configFile: File, dataDir: File, logsDir: File) {
@@ -78,5 +112,11 @@ class NodeBootstrapper(private val context: Context) {
         private const val PREFS_NAME = "digimobile_prefs"
         private const val KEY_BOOTSTRAP_COMPLETE = "bootstrap_complete"
         private const val DEFAULT_CONFIG_ASSET = "config/digimobile-pruned.conf"
+        private const val CLI_ASSET_PATH = "bin/digibyte-cli-arm64"
+
+        /**
+         * The digibyte-cli binary must be staged under assets/bin for installation.
+         */
+        private var cliMissingLogged: Boolean = false
     }
 }

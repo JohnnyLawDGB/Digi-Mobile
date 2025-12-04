@@ -125,7 +125,15 @@ class NodeService : Service() {
         NodeState.WritingConfig -> "Writing node configuration..."
         NodeState.StartingDaemon -> "Starting DigiByte daemon..."
         NodeState.ConnectingToPeers -> "Connecting to DigiByte peers..."
-        is NodeState.Syncing -> "Syncing (${this.progress}%) height ${this.currentHeight}/${this.targetHeight}"
+        is NodeState.Syncing -> {
+            val progressText = this.progress?.let { "$it%" } ?: "progress unknown"
+            val heightText = if (this.currentHeight != null && this.targetHeight != null) {
+                " height ${this.currentHeight}/${this.targetHeight}"
+            } else {
+                ""
+            }
+            "Syncing ($progressText)$heightText"
+        }
         NodeState.Ready -> "Digi-Mobile node running"
         is NodeState.Error -> "Node error: ${this.message}"
     }

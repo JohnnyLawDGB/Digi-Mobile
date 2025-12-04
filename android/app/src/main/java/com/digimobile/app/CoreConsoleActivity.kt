@@ -29,6 +29,7 @@ class CoreConsoleActivity : AppCompatActivity() {
     private val consoleEntries = mutableListOf<String>()
     private val commandHistory = ArrayDeque<String>()
     private var lastNodeState: NodeState = NodeState.Idle
+    private var cliAvailable: Boolean = true
 
     companion object {
         private const val HISTORY_LIMIT = 20
@@ -43,6 +44,8 @@ class CoreConsoleActivity : AppCompatActivity() {
         bootstrapper = NodeBootstrapper(applicationContext)
 
         binding.textConsole.text = "digibyte-cli console ready."
+
+        refreshCliAvailability()
 
         binding.buttonSend.setOnClickListener { onSendCommand() }
         binding.inputCommand.setOnEditorActionListener(TextView.OnEditorActionListener { _, actionId, _ ->
@@ -62,7 +65,9 @@ class CoreConsoleActivity : AppCompatActivity() {
                 nodeManager.nodeState.collect { state ->
                     lastNodeState = state
                     binding.textStatus.text = "Node status: ${state.toUserMessage(this@CoreConsoleActivity)}"
-                    if (state is NodeState.Idle || state is NodeState.Error) {
+                    if (!cliAvailable) {
+                        showCliUnavailableMessage()
+                    } else if (state is NodeState.Idle || state is NodeState.Error) {
                         showWarning("Node is not running. Restart it from the main screen.")
                         setCommandInputEnabled(false)
                     } else if (state !is NodeState.Ready) {
@@ -87,12 +92,21 @@ class CoreConsoleActivity : AppCompatActivity() {
             showWarning("Node is not ready yet. Wait for full sync before sending commands.")
             return
         }
+        if (!cliAvailable) {
+            showCliUnavailableMessage()
+            return
+        }
 
         hideWarning()
         binding.buttonSend.isEnabled = false
 
         lifecycleScope.launch {
             try {
+                val available = withContext(Dispatchers.IO) { bootstrapper.ensureCliBinary()?.exists() == true }
+                if (!available) {
+                    withContext(Dispatchers.Main) { showCliUnavailableMessage() }
+                    return@launch
+                }
                 val result = withContext(Dispatchers.IO) { runCliCommand(commandText) }
                 appendConsoleEntry(result)
             } finally {
@@ -106,7 +120,7 @@ class CoreConsoleActivity : AppCompatActivity() {
 
     private fun runCliCommand(command: String): CliResult {
         val paths = bootstrapper.ensureBootstrap()
-        val cliBinary = File(filesDir, "bin/digibyte-cli")
+        val cliBinary = bootstrapper.ensureCliBinary() ?: File(filesDir, "bin/digibyte-cli")
         if (!cliBinary.exists()) {
             return CliResult(command, "", "digibyte-cli not found at ${cliBinary.absolutePath}", -1)
         }
@@ -164,6 +178,24 @@ class CoreConsoleActivity : AppCompatActivity() {
     private fun setCommandInputEnabled(enabled: Boolean) {
         binding.buttonSend.isEnabled = enabled
         binding.inputCommand.isEnabled = enabled
+    }
+
+    private fun refreshCliAvailability() {
+        lifecycleScope.launch {
+            val available = withContext(Dispatchers.IO) { bootstrapper.ensureCliBinary()?.exists() == true }
+            if (!available) {
+                withContext(Dispatchers.Main) { showCliUnavailableMessage() }
+            } else {
+                cliAvailable = true
+            }
+        }
+    }
+
+    private fun showCliUnavailableMessage() {
+        cliAvailable = false
+        binding.textConsole.text = "digibyte-cli is not available in this build of Digi-Mobile."
+        showWarning("digibyte-cli is not available in this build of Digi-Mobile.")
+        setCommandInputEnabled(false)
     }
 
     private fun showWarning(message: String) {

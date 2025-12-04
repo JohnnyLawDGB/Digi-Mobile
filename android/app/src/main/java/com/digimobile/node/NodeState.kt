@@ -11,9 +11,9 @@ sealed class NodeState {
     data object StartingDaemon : NodeState()
     data object ConnectingToPeers : NodeState()
     data class Syncing(
-        val progress: Int,
-        val currentHeight: Long,
-        val targetHeight: Long
+        val progress: Int?,
+        val currentHeight: Long?,
+        val targetHeight: Long?
     ) : NodeState()
     data object Ready : NodeState()
     data class Error(val message: String) : NodeState()
@@ -28,8 +28,22 @@ fun NodeState.toUserMessage(context: Context): String = when (this) {
     NodeState.WritingConfig -> "Writing DigiByte configuration…"
     NodeState.StartingDaemon -> "Starting DigiByte node process…"
     NodeState.ConnectingToPeers -> "Connecting to peers…"
-    is NodeState.Syncing ->
-        "Syncing blockchain: ${currentHeight} / ${targetHeight} (${progress}%)…"
+    is NodeState.Syncing -> {
+        val progressText = progress?.let { "$it%" } ?: "in progress"
+        val heightText = if (currentHeight != null && targetHeight != null && targetHeight > 0) {
+            "${currentHeight} / ${targetHeight}"
+        } else {
+            null
+        }
+
+        if (heightText != null && progress != null) {
+            "Syncing blockchain: $heightText ($progressText)…"
+        } else if (heightText != null) {
+            "Syncing blockchain: $heightText…"
+        } else {
+            "Syncing blockchain ($progressText)…"
+        }
+    }
     NodeState.Ready -> "Node is fully synced and ready."
     is NodeState.Error -> "Something went wrong. See details below."
 }
