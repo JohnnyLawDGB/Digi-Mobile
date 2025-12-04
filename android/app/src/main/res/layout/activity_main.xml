@@ -54,6 +54,13 @@
             android:text="Status: Not running"
             android:textAppearance="@style/TextAppearance.AppCompat.Medium" />
 
+        <Button
+            android:id="@+id/buttonDetails"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="View setup details" />
+
         <TextView
             android:id="@+id/textNotes"
             android:layout_width="match_parent"
