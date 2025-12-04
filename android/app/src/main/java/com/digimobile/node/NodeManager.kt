@@ -277,6 +277,8 @@ class NodeManager(
         }
     }
 
+    suspend fun executeCliCommand(args: List<String>): CliResult = runCliCommand(args)
+
     private suspend fun runCliCommand(args: List<String>): CliResult = withContext(Dispatchers.IO) {
         val paths = NodeEnvironment.paths ?: lastNodePaths
         val credentials = NodeEnvironment.rpcCredentials
@@ -366,7 +368,7 @@ class NodeManager(
         val connections: Int?,
     )
 
-    private data class CliResult(
+    data class CliResult(
         val exitCode: Int,
         val stdout: String,
         val stderr: String,
