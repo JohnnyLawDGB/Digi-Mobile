@@ -55,6 +55,14 @@
             android:textAppearance="@style/TextAppearance.AppCompat.Medium" />
 
         <Button
+            android:id="@+id/buttonOpenConsole"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Open core console"
+            android:visibility="gone" />
+
+        <Button
             android:id="@+id/buttonDetails"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

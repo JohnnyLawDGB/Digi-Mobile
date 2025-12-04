@@ -5,6 +5,7 @@ import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.isVisible
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
@@ -20,6 +21,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private lateinit var bootstrapper: NodeBootstrapper
     private lateinit var nodeManager: NodeManager
+    private var lastNodeState: NodeState = NodeState.Idle
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -45,7 +47,14 @@ class MainActivity : AppCompatActivity() {
             openNodeSetupActivity()
         }
         binding.buttonDetails.setOnClickListener { openNodeSetupActivity() }
-        binding.textStatus.setOnClickListener { openNodeSetupActivity() }
+        binding.textStatus.setOnClickListener {
+            if (lastNodeState is NodeState.Ready) {
+                openCoreConsoleActivity()
+            } else {
+                openNodeSetupActivity()
+            }
+        }
+        binding.buttonOpenConsole.setOnClickListener { openCoreConsoleActivity() }
 
         observeNodeState()
     }
@@ -66,8 +75,10 @@ class MainActivity : AppCompatActivity() {
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 nodeManager.nodeState.collect { state ->
+                    lastNodeState = state
                     updateStatusLabel(state.toUserMessage())
                     updateButtonForState(state)
+                    updateConsoleButton(state)
                 }
             }
         }
@@ -114,8 +125,19 @@ class MainActivity : AppCompatActivity() {
         binding.textStatus.text = "Status: $status"
     }
 
+    private fun updateConsoleButton(state: NodeState) {
+        binding.buttonOpenConsole.isEnabled = state is NodeState.Ready
+        binding.buttonOpenConsole.isClickable = state is NodeState.Ready
+        binding.buttonOpenConsole.isVisible = state is NodeState.Ready
+    }
+
     private fun openNodeSetupActivity() {
         val intent = Intent(this, NodeSetupActivity::class.java)
+        startActivity(intent)
+    }
+
+    private fun openCoreConsoleActivity() {
+        val intent = Intent(this, CoreConsoleActivity::class.java)
         startActivity(intent)
     }
 }

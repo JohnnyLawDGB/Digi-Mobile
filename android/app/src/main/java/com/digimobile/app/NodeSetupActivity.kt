@@ -1,5 +1,6 @@
 package com.digimobile.app
 
+import android.content.Intent
 import android.os.Bundle
 import android.text.method.ScrollingMovementMethod
 import android.widget.Toast
@@ -201,7 +202,8 @@ class NodeSetupActivity : AppCompatActivity() {
                 binding.buttonAction.text = "Open core console"
                 binding.buttonAction.isEnabled = true
                 binding.buttonAction.setOnClickListener {
-                    Toast.makeText(this, "Core console coming soon", Toast.LENGTH_SHORT).show()
+                    val intent = Intent(this, CoreConsoleActivity::class.java)
+                    startActivity(intent)
                 }
             }
             else -> {
