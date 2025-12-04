@@ -23,7 +23,7 @@ object DigiConfigTemplate {
         val configFile = File(datadir, "digibyte.conf")
         if (!configFile.exists()) {
             val credentials = RpcCredentials(RPC_USER_DEFAULT, generatePassword())
-            configFile.writeText(buildTemplate(datadir, credentials))
+            configFile.writeText(buildTemplate(credentials))
             return credentials
         }
 
@@ -53,21 +53,22 @@ object DigiConfigTemplate {
         return credentials
     }
 
-    private fun buildTemplate(datadir: File, credentials: RpcCredentials): String {
+    private fun buildTemplate(credentials: RpcCredentials): String {
         return """
             # DigiByte mobile default configuration
             server=1
             listen=1
-            txindex=0
+            dns=1
+            discover=1
+            maxconnections=8
             prune=2048
             dbcache=128
-            maxconnections=12
+            txindex=0
+
             rpcuser=${credentials.user}
             rpcpassword=${credentials.password}
             rpcallowip=127.0.0.1
             rpcbind=127.0.0.1
-            rpcport=14022
-            datadir=${datadir.absolutePath}
         """.trimIndent() + "\n"
     }
 

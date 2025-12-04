@@ -43,6 +43,7 @@ public class DigiMobileNodeController {
         ensureNativeLoaded();
         AssetManager assets = context.getAssets();
         String filesDir = context.getFilesDir().getAbsolutePath();
+        Log.i(TAG, "Starting node with datadir=" + dataDir + " conf=" + configPath);
         nativeStartNode(assets, configPath, dataDir, filesDir);
 
         String status = nativeGetStatus();
