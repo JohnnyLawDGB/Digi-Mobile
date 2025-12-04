@@ -1,5 +1,7 @@
 package com.digimobile.node
 
+import android.content.Context
+
 sealed class NodeState {
     data object Idle : NodeState()
     data object PreparingEnvironment : NodeState()
@@ -17,15 +19,17 @@ sealed class NodeState {
     data class Error(val message: String) : NodeState()
 }
 
-fun NodeState.toUserMessage(): String = when (this) {
-    NodeState.Idle -> "Not running"
-    NodeState.PreparingEnvironment -> "Preparing environment..."
-    is NodeState.DownloadingBinaries -> "Downloading binaries (${this.progress}%)..."
-    NodeState.VerifyingBinaries -> "Verifying binaries..."
-    NodeState.WritingConfig -> "Writing configuration..."
-    NodeState.StartingDaemon -> "Starting DigiByte daemon..."
-    NodeState.ConnectingToPeers -> "Connecting to peers..."
-    is NodeState.Syncing -> "Syncing (${this.progress}%) height ${this.currentHeight}/${this.targetHeight}"
-    NodeState.Ready -> "Node is fully synced and ready"
-    is NodeState.Error -> "Error: ${this.message}"
+@Suppress("UNUSED_PARAMETER")
+fun NodeState.toUserMessage(context: Context): String = when (this) {
+    NodeState.Idle -> "Node is not running."
+    NodeState.PreparingEnvironment -> "Preparing storage and configuration…"
+    is NodeState.DownloadingBinaries -> "Downloading DigiByte node binaries (${progress}%)…"
+    NodeState.VerifyingBinaries -> "Verifying downloaded files…"
+    NodeState.WritingConfig -> "Writing DigiByte configuration…"
+    NodeState.StartingDaemon -> "Starting DigiByte node process…"
+    NodeState.ConnectingToPeers -> "Connecting to peers…"
+    is NodeState.Syncing ->
+        "Syncing blockchain: ${currentHeight} / ${targetHeight} (${progress}%)…"
+    NodeState.Ready -> "Node is fully synced and ready."
+    is NodeState.Error -> "Something went wrong. See details below."
 }

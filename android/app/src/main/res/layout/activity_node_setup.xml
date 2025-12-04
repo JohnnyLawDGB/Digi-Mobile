@@ -18,6 +18,14 @@
             android:textStyle="bold" />
 
         <TextView
+            android:id="@+id/textHelper"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="We’ll download the DigiByte node binaries and sync the blockchain on this device."
+            android:textAppearance="@style/TextAppearance.AppCompat.Small" />
+
+        <TextView
             android:id="@+id/textMainStatus"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
