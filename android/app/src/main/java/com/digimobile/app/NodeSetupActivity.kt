@@ -71,8 +71,13 @@ class NodeSetupActivity : AppCompatActivity() {
     }
 
     private fun updateStatus(state: NodeState, previousState: NodeState) {
-        binding.textMainStatus.text = state.toUserMessage(this)
+        binding.textMainStatus.text = if (state is NodeState.Error) {
+            "Error: ${state.message}"
+        } else {
+            state.toUserMessage(this)
+        }
         updateHelperText(state)
+        updateErrorBanner(state)
         if (state is NodeState.Error) {
             appendLogLine("Error detail: ${state.message}")
         }
@@ -214,6 +219,11 @@ class NodeSetupActivity : AppCompatActivity() {
                     startActivity(intent)
                 }
             }
+            is NodeState.Error -> {
+                binding.buttonAction.text = "Back to home"
+                binding.buttonAction.isEnabled = true
+                binding.buttonAction.setOnClickListener { finish() }
+            }
             else -> {
                 binding.buttonAction.text = "Back"
                 binding.buttonAction.setOnClickListener { finish() }
@@ -225,9 +235,19 @@ class NodeSetupActivity : AppCompatActivity() {
         val helper = when (state) {
             NodeState.Ready -> "Your phone is now running a DigiByte node. Use the core console to issue advanced commands."
             is NodeState.Syncing, NodeState.ConnectingToPeers -> "You can leave this screen; the node continues syncing in the background."
+            is NodeState.Error -> "Node failed to start. Return to the home screen and try again."
             else -> "We’ll download the DigiByte node binaries and sync the blockchain on this device."
         }
         binding.textHelper.text = helper
+    }
+
+    private fun updateErrorBanner(state: NodeState) {
+        if (state is NodeState.Error) {
+            binding.textErrorBanner.isVisible = true
+            binding.textErrorBanner.text = state.message
+        } else {
+            binding.textErrorBanner.isVisible = false
+        }
     }
 
     private fun confirmStopNode() {

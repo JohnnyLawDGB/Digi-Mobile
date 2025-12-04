@@ -67,8 +67,6 @@ class MainActivity : AppCompatActivity() {
             @Suppress("DEPRECATION")
             startService(intent)
         }
-
-        nodeManager.startNode()
     }
 
     private fun observeNodeState() {
