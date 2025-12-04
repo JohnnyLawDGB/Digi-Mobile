@@ -114,7 +114,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun DigiMobileNodeController.statusText(): String {
         return try {
-            val status = getStatus()
+            val status = getStatus()?.trim()
             if (status.isNullOrBlank()) "UNKNOWN" else status
         } catch (e: UnsatisfiedLinkError) {
             // TODO: surface a clearer error if the JNI library is missing or incompatible.
