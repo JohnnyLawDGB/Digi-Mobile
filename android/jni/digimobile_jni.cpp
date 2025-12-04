@@ -170,6 +170,24 @@ Java_com_digimobile_node_DigiMobileNodeController_nativeStartNode(
         }
     }
 
+    const std::string cli_binary = bin_dir + "/digibyte-cli";
+    if (access(cli_binary.c_str(), X_OK) != 0) {
+        __android_log_print(ANDROID_LOG_INFO, kLogTag,
+                            "Extracting digibyte-cli from assets into %s", cli_binary.c_str());
+        if (!CopyAssetToFile(asset_manager, "bin/digibyte-cli-arm64", cli_binary)) {
+            __android_log_print(ANDROID_LOG_ERROR, kLogTag,
+                                "digibyte-cli asset missing; stop/getblockchaininfo calls will fail");
+            g_status = NodeStatus::ERROR;
+            g_node_pid = -1;
+            return;
+        }
+    } else {
+        if (!MakeExecutable(cli_binary)) {
+            __android_log_print(ANDROID_LOG_WARN, kLogTag,
+                                "digibyte-cli at %s exists but is not executable", cli_binary.c_str());
+        }
+    }
+
     std::string conf_arg = "-conf=" + config_path;
     std::string datadir_arg = "-datadir=" + data_dir;
 

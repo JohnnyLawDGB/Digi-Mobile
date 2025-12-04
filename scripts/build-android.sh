@@ -77,5 +77,11 @@ log "Copying digibyted into APK assets at ${ASSET_BIN_DIR}"
 mkdir -p "${ASSET_BIN_DIR}"
 cp "${BIN_DIR}/digibyted" "${ASSET_BIN_DIR}/digibyted-arm64"
 log "Copied digibyted-arm64 asset"
+if [[ -f "${BIN_DIR}/digibyte-cli" ]]; then
+  cp "${BIN_DIR}/digibyte-cli" "${ASSET_BIN_DIR}/digibyte-cli-arm64"
+  log "Copied digibyte-cli-arm64 asset"
+else
+  log "digibyte-cli not built; CLI-driven features will be unavailable in the APK"
+fi
 log "Run ./gradlew assembleDebug (from android/; helper script forwards to repo wrapper) to package the APK with the bundled daemon."
 log "APK outputs: android/app/build/outputs/apk/debug/app-debug.apk and android/app/build/outputs/apk/release/app-release.apk"
