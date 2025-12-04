@@ -353,6 +353,19 @@ class NodeManager(
         Missing
     }
 
+    fun getStatusSnapshot(): NodeStatusSnapshot {
+        val paths = lastNodePaths ?: runCatching { bootstrapper.ensureBootstrap() }.getOrNull()
+        val dataDir = paths?.dataDir ?: File(context.filesDir, "digibyte")
+        val configFile = paths?.configFile ?: File(dataDir, "digibyte.conf")
+        val debugLogFile = NodeDiagnostics.getDebugLogFile(dataDir)
+
+        return NodeStatusSnapshot(
+            datadir = dataDir,
+            hasConfig = configFile.exists(),
+            hasDebugLog = debugLogFile.exists()
+        )
+    }
+
     fun appendLog(message: String) {
         _logLines.tryEmit(message)
     }
@@ -385,3 +398,9 @@ class NodeManager(
         return lastStatus
     }
 }
+
+data class NodeStatusSnapshot(
+    val datadir: File,
+    val hasConfig: Boolean,
+    val hasDebugLog: Boolean,
+)

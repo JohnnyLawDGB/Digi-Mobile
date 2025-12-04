@@ -13,6 +13,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import com.digimobile.app.databinding.ActivityNodeSetupBinding
 import com.digimobile.node.NodeManager
 import com.digimobile.node.NodeManagerProvider
+import com.digimobile.node.NodeDiagnostics
 import com.digimobile.node.NodeState
 import com.digimobile.node.toUserMessage
 import java.util.ArrayDeque
@@ -26,6 +27,7 @@ class NodeSetupActivity : AppCompatActivity() {
     private lateinit var nodeManager: NodeManager
     private var lastNodeState: NodeState = NodeState.Idle
     private val logBuffer = ArrayDeque<String>()
+    private var diagnosticsLogged = false
 
     companion object {
         private const val MAX_LOG_LINES = 500
@@ -71,6 +73,10 @@ class NodeSetupActivity : AppCompatActivity() {
     }
 
     private fun updateStatus(state: NodeState, previousState: NodeState) {
+        if (state is NodeState.Idle) {
+            diagnosticsLogged = false
+        }
+
         binding.textMainStatus.text = if (state is NodeState.Error) {
             "Error: ${state.message}"
         } else {
@@ -92,6 +98,45 @@ class NodeSetupActivity : AppCompatActivity() {
         updateProgress(state)
         updateSteps(state, previousState)
         updateActionButton(state)
+        maybeLogDiagnostics(state, previousState)
+    }
+
+    private fun maybeLogDiagnostics(state: NodeState, previousState: NodeState) {
+        if (diagnosticsLogged) return
+        if (!isRunningState(state) || isRunningState(previousState)) return
+
+        diagnosticsLogged = true
+        lifecycleScope.launch(Dispatchers.IO) {
+            val snapshot = nodeManager.getStatusSnapshot()
+            val debugLogFile = NodeDiagnostics.getDebugLogFile(snapshot.datadir)
+            val tail = NodeDiagnostics.tailDebugLog(snapshot.datadir, maxLines = 50)
+
+            val message: String
+            val linesToAppend: List<String>
+
+            if (snapshot.hasDebugLog) {
+                if (tail.isNotEmpty()) {
+                    message =
+                        "Debug log found at ${debugLogFile.absolutePath}; showing last ${tail.size} lines below…"
+                    linesToAppend = tail
+                } else {
+                    message = "Debug log found at ${debugLogFile.absolutePath}; no log entries yet."
+                    linesToAppend = emptyList()
+                }
+            } else {
+                message = "No debug.log yet; node may still be initializing."
+                linesToAppend = emptyList()
+            }
+
+            withContext(Dispatchers.Main) {
+                appendLogLine(message)
+                linesToAppend.forEach { appendLogLine("[debug.log] $it") }
+            }
+        }
+    }
+
+    private fun isRunningState(state: NodeState): Boolean {
+        return state is NodeState.ConnectingToPeers || state is NodeState.Syncing || state is NodeState.Ready
     }
 
     private fun appendLogLine(line: String) {
