@@ -5,19 +5,20 @@ import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import com.digimobile.app.databinding.ActivityMainBinding
-import com.digimobile.node.DigiMobileNodeController
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
+import com.digimobile.node.NodeManager
+import com.digimobile.node.NodeManagerProvider
+import com.digimobile.node.NodeState
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
     private lateinit var bootstrapper: NodeBootstrapper
-    private val nodeController = DigiMobileNodeController()
+    private lateinit var nodeManager: NodeManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -25,6 +26,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         bootstrapper = NodeBootstrapper(this)
+        nodeManager = NodeManagerProvider.get(applicationContext)
 
         binding.textIntro.text = "Welcome to Digi-Mobile"
         binding.textExplanation.text =
@@ -39,13 +41,10 @@ class MainActivity : AppCompatActivity() {
 
         binding.buttonStartNode.setOnClickListener { startNodeFlow() }
 
-        updateStatusLabel(nodeController.statusText())
+        observeNodeState()
     }
 
     private fun startNodeFlow() {
-        binding.buttonStartNode.isEnabled = false
-        updateStatusLabel("Starting node service...")
-
         val intent = Intent(this@MainActivity, NodeService::class.java)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             startForegroundService(intent)
@@ -54,48 +53,67 @@ class MainActivity : AppCompatActivity() {
             startService(intent)
         }
 
-        lifecycleScope.launch { observeNodeStartup() }
+        nodeManager.startNode()
     }
 
-    private fun observeNodeStartup() {
+    private fun observeNodeState() {
         lifecycleScope.launch {
-            var lastStatus = "UNKNOWN"
-            repeat(15) {
-                lastStatus = withContext(Dispatchers.IO) { nodeController.statusText() }
-                updateStatusLabel(lastStatus)
-
-                val statusUpper = lastStatus.uppercase()
-                if (statusUpper == "RUNNING") {
-                    binding.buttonStartNode.isEnabled = false
-                    binding.buttonStartNode.text = "Node running"
-                    Toast.makeText(
-                        this@MainActivity,
-                        "Node service started. Status: $lastStatus",
-                        Toast.LENGTH_LONG
-                    ).show()
-                    return@launch
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                nodeManager.nodeState.collect { state ->
+                    updateStatusLabel(state.toUserMessage())
+                    updateButtonForState(state)
                 }
-
-                delay(1_000)
             }
-
-            binding.buttonStartNode.isEnabled = true
-            binding.buttonStartNode.text = "Retry start"
-            Toast.makeText(
-                this@MainActivity,
-                "Node status did not reach RUNNING (last: $lastStatus)",
-                Toast.LENGTH_LONG
-            ).show()
         }
     }
 
-    private fun DigiMobileNodeController.statusText(): String {
-        return try {
-            val status = getStatus()?.trim()
-            if (status.isNullOrBlank()) "UNKNOWN" else status
-        } catch (e: UnsatisfiedLinkError) {
-            // TODO: surface a clearer error if the JNI library is missing or incompatible.
-            "JNI missing"
+    private fun NodeState.toUserMessage(): String = when (this) {
+        NodeState.Idle -> "Not running"
+        NodeState.PreparingEnvironment -> "Preparing environment..."
+        is NodeState.DownloadingBinaries -> "Downloading binaries (${this.progress}%)..."
+        NodeState.VerifyingBinaries -> "Verifying binaries..."
+        NodeState.WritingConfig -> "Writing configuration..."
+        NodeState.StartingDaemon -> "Starting DigiByte daemon..."
+        NodeState.ConnectingToPeers -> "Connecting to peers..."
+        is NodeState.Syncing -> "Syncing (${this.progress}%) height ${this.currentHeight}/${this.targetHeight}"
+        NodeState.Ready -> "Node running"
+        is NodeState.Error -> "Error: ${this.message}"
+    }
+
+    private fun updateButtonForState(state: NodeState) {
+        when (state) {
+            NodeState.Idle -> {
+                binding.buttonStartNode.isEnabled = true
+                binding.buttonStartNode.text = "Set up and start node"
+            }
+            NodeState.PreparingEnvironment,
+            is NodeState.DownloadingBinaries,
+            NodeState.VerifyingBinaries,
+            NodeState.WritingConfig,
+            NodeState.StartingDaemon,
+            NodeState.ConnectingToPeers,
+            is NodeState.Syncing -> {
+                binding.buttonStartNode.isEnabled = false
+                binding.buttonStartNode.text = "Starting..."
+            }
+            NodeState.Ready -> {
+                binding.buttonStartNode.isEnabled = false
+                binding.buttonStartNode.text = "Node running"
+                Toast.makeText(
+                    this@MainActivity,
+                    "Node service started and running",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+            is NodeState.Error -> {
+                binding.buttonStartNode.isEnabled = true
+                binding.buttonStartNode.text = "Retry start"
+                Toast.makeText(
+                    this@MainActivity,
+                    "Node error: ${state.message}",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
         }
     }
 
