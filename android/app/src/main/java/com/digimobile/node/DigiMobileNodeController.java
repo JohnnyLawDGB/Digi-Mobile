@@ -2,6 +2,7 @@ package com.digimobile.node;
 
 import android.content.Context;
 import android.content.res.AssetManager;
+import android.util.Log;
 
 /**
  * Low-level controller for managing the Digi-Mobile node lifecycle from Android.
@@ -15,8 +16,19 @@ import android.content.res.AssetManager;
  * executor rather than the main/UI thread.
  */
 public class DigiMobileNodeController {
+    private static final String TAG = "DigiMobileNode";
+    private static final boolean nativeLoaded;
+
     static {
-        System.loadLibrary("digimobile_jni");
+        boolean loaded;
+        try {
+            System.loadLibrary("digimobile_jni");
+            loaded = true;
+        } catch (UnsatisfiedLinkError e) {
+            Log.e(TAG, "Native library digimobile_jni is missing", e);
+            loaded = false;
+        }
+        nativeLoaded = loaded;
     }
 
     /**
@@ -28,6 +40,7 @@ public class DigiMobileNodeController {
      * @param dataDir    absolute path to the node's data directory.
      */
     public void startNode(Context context, String configPath, String dataDir) {
+        ensureNativeLoaded();
         AssetManager assets = context.getAssets();
         String filesDir = context.getFilesDir().getAbsolutePath();
         nativeStartNode(assets, configPath, dataDir, filesDir);
@@ -37,6 +50,7 @@ public class DigiMobileNodeController {
      * Attempt to terminate the Digi-Mobile node process.
      */
     public void stopNode() {
+        ensureNativeLoaded();
         nativeStopNode();
     }
 
@@ -46,7 +60,16 @@ public class DigiMobileNodeController {
      * @return one of "NOT_RUNNING", "RUNNING", "BINARY_MISSING", or "ERROR".
      */
     public String getStatus() {
+        if (!nativeLoaded) {
+            return "JNI missing";
+        }
         return nativeGetStatus();
+    }
+
+    private void ensureNativeLoaded() {
+        if (!nativeLoaded) {
+            throw new IllegalStateException("Native library digimobile_jni is not available");
+        }
     }
 
     private native void nativeStartNode(AssetManager assetManager, String configPath, String dataDir, String filesDir);
