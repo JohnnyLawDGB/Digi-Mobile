@@ -11,8 +11,8 @@ import android.os.Build
 import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
-import com.digimobile.node.DigiMobileNodeController
 import com.digimobile.node.NodeManager
+import com.digimobile.node.NodeManagerProvider
 import com.digimobile.node.NodeState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -25,19 +25,19 @@ import kotlinx.coroutines.launch
 class NodeService : Service() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private val nodeController = DigiMobileNodeController()
     private lateinit var nodeManager: NodeManager
-    private lateinit var bootstrapper: NodeBootstrapper
     private var stateJob: Job? = null
 
     override fun onCreate() {
         super.onCreate()
-        bootstrapper = NodeBootstrapper(this)
-        nodeManager = NodeManager(this, bootstrapper, nodeController, scope)
+        nodeManager = NodeManagerProvider.get(this)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        startForeground(NOTIFICATION_ID, buildNotification("Starting DigiByte node..."))
+        startForeground(
+            NOTIFICATION_ID,
+            buildNotification(nodeManager.nodeState.value.toNotificationText())
+        )
         startStateUpdates()
         nodeManager.startNode().invokeOnCompletion { throwable ->
             throwable?.let { Log.e(TAG, "Failed to start node: ${it.message}", it) }
