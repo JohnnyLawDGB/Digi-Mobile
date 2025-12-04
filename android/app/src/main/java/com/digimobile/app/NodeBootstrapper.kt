@@ -35,16 +35,18 @@ class NodeBootstrapper(private val context: Context) {
         val debugLogFile = File(dataDir, "debug.log")
         val configFile = File(dataDir, "digibyte.conf")
 
-        val credentials = ensureConfig(dataDir)
-
         ensureCliBinary()
+
+        val credentials = ensureConfig(dataDir)
 
         prefs.edit().putBoolean(KEY_BOOTSTRAP_COMPLETE, true).apply()
         val paths = NodePaths(configFile, dataDir, debugLogFile)
         NodeEnvironment.update(paths, credentials)
         if (!pathsLogged) {
-            Log.i(TAG, "Using DigiByte data directory at ${dataDir.absolutePath}")
-            Log.i(TAG, "Using DigiByte config at ${configFile.absolutePath}")
+            Log.i(
+                TAG,
+                "Using DigiByte datadir=${dataDir.absolutePath} conf=${configFile.absolutePath}"
+            )
             pathsLogged = true
         }
         return paths
