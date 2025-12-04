@@ -188,6 +188,7 @@ Java_com_digimobile_node_DigiMobileNodeController_nativeStartNode(
         }
     }
 
+    // Always pass explicit config and datadir flags to avoid relying on defaults.
     std::string conf_arg = "-conf=" + config_path;
     std::string datadir_arg = "-datadir=" + data_dir;
 

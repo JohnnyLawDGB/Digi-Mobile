@@ -27,7 +27,7 @@ fun NodeState.toUserMessage(context: Context): String = when (this) {
     NodeState.VerifyingBinaries -> "Verifying downloaded files…"
     NodeState.WritingConfig -> "Writing DigiByte configuration…"
     NodeState.StartingDaemon -> "Starting DigiByte node process…"
-    NodeState.ConnectingToPeers -> "Connecting to peers…"
+    NodeState.ConnectingToPeers -> "Node is running; waiting for peer connections and sync details…"
     is NodeState.Syncing -> {
         val progressText = progress?.let { "$it%" } ?: "in progress"
         val heightText = if (currentHeight != null && targetHeight != null && targetHeight > 0) {
@@ -41,7 +41,7 @@ fun NodeState.toUserMessage(context: Context): String = when (this) {
         } else if (heightText != null) {
             "Syncing blockchain: $heightText…"
         } else {
-            "Syncing blockchain ($progressText)…"
+            "Node is running; waiting for sync details…"
         }
     }
     NodeState.Ready -> "Node is fully synced and ready."

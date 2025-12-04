@@ -81,6 +81,7 @@ class NodeManager(
             updateState(NodeState.StartingDaemon, "Starting DigiByte daemon…")
 
             try {
+                // -conf and -datadir are forwarded to digibyted via nativeStartNode.
                 controller.startNode(
                     context.applicationContext,
                     paths.configFile.absolutePath,
@@ -203,6 +204,8 @@ class NodeManager(
             return
         }
 
+        // TODO: Replace RUNNING heuristics with digibyte-cli getnetworkinfo/getblockchaininfo
+        // calls or debug.log parsing for UpdateTip/connection lines when tooling is available.
         while (true) {
             val status = runCatching { controller.getStatus() }.getOrNull()
             if (status != null) {
@@ -239,7 +242,7 @@ class NodeManager(
 
             val syncLogMessage = when {
                 isSynced -> "Node is fully synced and ready"
-                !cliAvailable && blockchainInfo == null -> "Syncing: height unknown (digibyte-cli not available in this build)"
+                !cliAvailable && blockchainInfo == null -> "Node is running; waiting for sync details (digibyte-cli not available in this build)."
                 else -> formatSyncLog(currentHeight, targetHeight, progress)
             }
 
