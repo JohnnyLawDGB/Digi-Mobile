@@ -61,7 +61,7 @@ class CoreConsoleActivity : AppCompatActivity() {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 nodeManager.nodeState.collect { state ->
                     lastNodeState = state
-                    binding.textStatus.text = "Node status: ${state.toUserMessage()}"
+                    binding.textStatus.text = "Node status: ${state.toUserMessage(this@CoreConsoleActivity)}"
                     if (state is NodeState.Idle || state is NodeState.Error) {
                         showWarning("Node is not running. Restart it from the main screen.")
                         setCommandInputEnabled(false)

@@ -76,7 +76,7 @@ class MainActivity : AppCompatActivity() {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 nodeManager.nodeState.collect { state ->
                     lastNodeState = state
-                    updateStatusLabel(state.toUserMessage())
+                    updateStatusLabel(state.toUserMessage(this@MainActivity))
                     updateButtonForState(state)
                     updateConsoleButton(state)
                 }
@@ -111,10 +111,10 @@ class MainActivity : AppCompatActivity() {
             }
             is NodeState.Error -> {
                 binding.buttonStartNode.isEnabled = true
-                binding.buttonStartNode.text = "Retry start"
+                binding.buttonStartNode.text = "Set up and start node"
                 Toast.makeText(
                     this@MainActivity,
-                    "Node error: ${state.message}",
+                    "Something went wrong. Tap to try starting again.",
                     Toast.LENGTH_LONG
                 ).show()
             }

@@ -39,6 +39,7 @@ class NodeSetupActivity : AppCompatActivity() {
         nodeManager = NodeManagerProvider.get(applicationContext)
 
         setupLogsPlaceholder()
+        updateHelperText(NodeState.Idle)
         observeNodeState()
         observeLogs()
     }
@@ -70,11 +71,10 @@ class NodeSetupActivity : AppCompatActivity() {
     }
 
     private fun updateStatus(state: NodeState, previousState: NodeState) {
-        binding.textMainStatus.text = when {
-            state is NodeState.Idle && previousState !is NodeState.Idle -> {
-                "Node stopped. You can restart it from the main screen."
-            }
-            else -> state.toUserMessage()
+        binding.textMainStatus.text = state.toUserMessage(this)
+        updateHelperText(state)
+        if (state is NodeState.Error) {
+            appendLogLine("Error detail: ${state.message}")
         }
         if (state is NodeState.Ready && previousState !is NodeState.Ready) {
             nodeManager.appendLog("Node is ready to accept CLI commands.")
@@ -215,6 +215,15 @@ class NodeSetupActivity : AppCompatActivity() {
                 binding.buttonAction.setOnClickListener { finish() }
             }
         }
+    }
+
+    private fun updateHelperText(state: NodeState) {
+        val helper = when (state) {
+            NodeState.Ready -> "Your phone is now running a DigiByte node. Use the core console to issue advanced commands."
+            is NodeState.Syncing, NodeState.ConnectingToPeers -> "You can leave this screen; the node continues syncing in the background."
+            else -> "We’ll download the DigiByte node binaries and sync the blockchain on this device."
+        }
+        binding.textHelper.text = helper
     }
 
     private fun confirmStopNode() {
