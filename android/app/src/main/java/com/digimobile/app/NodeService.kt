@@ -12,48 +12,43 @@ import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.digimobile.node.DigiMobileNodeController
+import com.digimobile.node.NodeManager
+import com.digimobile.node.NodeState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 
 class NodeService : Service() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val nodeController = DigiMobileNodeController()
+    private lateinit var nodeManager: NodeManager
     private lateinit var bootstrapper: NodeBootstrapper
+    private var stateJob: Job? = null
 
     override fun onCreate() {
         super.onCreate()
         bootstrapper = NodeBootstrapper(this)
+        nodeManager = NodeManager(this, bootstrapper, nodeController, scope)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         startForeground(NOTIFICATION_ID, buildNotification("Starting DigiByte node..."))
-        scope.launch {
-            val paths = bootstrapper.ensureBootstrap()
-            try {
-                nodeController.startNode(this@NodeService, paths.configFile.absolutePath, paths.dataDir.absolutePath)
-                updateNotification("Digi-Mobile node running")
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to start node: ${e.message}", e)
-                updateNotification("Node error: ${e.message}")
-            }
+        startStateUpdates()
+        nodeManager.startNode().invokeOnCompletion { throwable ->
+            throwable?.let { Log.e(TAG, "Failed to start node: ${it.message}", it) }
         }
         return START_STICKY
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        val stopJob = scope.launch {
-            try {
-                nodeController.stopNode()
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to stop node: ${e.message}", e)
-            }
-        }
-
+        stateJob?.cancel()
+        val stopJob = nodeManager.stopNode()
         stopJob.invokeOnCompletion { scope.coroutineContext.cancel() }
         stopForeground(STOP_FOREGROUND_REMOVE)
     }
@@ -82,6 +77,28 @@ class NodeService : Service() {
     private fun updateNotification(text: String) {
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         manager.notify(NOTIFICATION_ID, buildNotification(text))
+    }
+
+    private fun startStateUpdates() {
+        if (stateJob != null) return
+        stateJob = scope.launch {
+            nodeManager.state.collect { state ->
+                updateNotification(state.toNotificationText())
+            }
+        }
+    }
+
+    private fun NodeState.toNotificationText(): String = when (this) {
+        NodeState.Idle -> "Digi-Mobile node idle"
+        NodeState.PreparingEnvironment -> "Preparing Digi-Mobile node environment..."
+        is NodeState.DownloadingBinaries -> "Downloading binaries (${this.progress}%)..."
+        NodeState.VerifyingBinaries -> "Verifying Digi-Mobile binaries..."
+        NodeState.WritingConfig -> "Writing node configuration..."
+        NodeState.StartingDaemon -> "Starting DigiByte daemon..."
+        NodeState.ConnectingToPeers -> "Connecting to DigiByte peers..."
+        is NodeState.Syncing -> "Syncing (${this.progress}%) height ${this.currentHeight}/${this.targetHeight}"
+        NodeState.Ready -> "Digi-Mobile node running"
+        is NodeState.Error -> "Node error: ${this.message}"
     }
 
     private fun createChannel() {
