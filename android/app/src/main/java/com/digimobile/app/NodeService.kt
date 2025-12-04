@@ -23,6 +23,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
 class NodeService : Service() {
 
@@ -133,13 +134,14 @@ class NodeService : Service() {
         NodeState.StartingDaemon -> "Starting DigiByte daemon..."
         NodeState.ConnectingToPeers -> "Connecting to DigiByte peers..."
         is NodeState.Syncing -> {
-            val progressText = this.progress?.let { "$it%" } ?: "progress unknown"
-            val heightText = if (this.currentHeight != null && this.targetHeight != null) {
-                " height ${this.currentHeight}/${this.targetHeight}"
+            val progressText = this.progress?.let { "${(it * 100).roundToInt()}%" } ?: "progress unknown"
+            val heightText = if (this.currentHeight != null && this.headerHeight != null) {
+                " height ${this.currentHeight}/${this.headerHeight}"
             } else {
                 ""
             }
-            "Syncing ($progressText)$heightText"
+            val peersText = this.peerCount?.let { " with $it peers" } ?: ""
+            "Syncing ($progressText)$heightText$peersText"
         }
         NodeState.Ready -> "Digi-Mobile node running"
         is NodeState.Error -> "Node error: ${this.message}"

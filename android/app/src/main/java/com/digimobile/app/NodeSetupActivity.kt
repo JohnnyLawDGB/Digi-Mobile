@@ -17,9 +17,10 @@ import com.digimobile.node.NodeDiagnostics
 import com.digimobile.node.NodeState
 import com.digimobile.node.toUserMessage
 import java.util.ArrayDeque
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlin.math.roundToInt
 
 class NodeSetupActivity : AppCompatActivity() {
 
@@ -149,17 +150,17 @@ class NodeSetupActivity : AppCompatActivity() {
 
     private fun updateProgress(state: NodeState) {
         when (state) {
-            is NodeState.DownloadingBinaries -> showProgress(state.progress)
+            is NodeState.DownloadingBinaries -> showProgress(state.progress / 100.0)
             is NodeState.Syncing -> showProgress(state.progress)
             else -> hideProgress()
         }
     }
 
-    private fun showProgress(progress: Int?) {
+    private fun showProgress(progress: Double?) {
         binding.progressBar.isVisible = true
         binding.progressBar.isIndeterminate = progress == null
         if (progress != null) {
-            binding.progressBar.progress = progress
+            binding.progressBar.progress = (progress * 100).roundToInt().coerceIn(0, 100)
         }
     }
 
@@ -283,7 +284,19 @@ class NodeSetupActivity : AppCompatActivity() {
     private fun updateHelperText(state: NodeState) {
         val helper = when (state) {
             NodeState.Ready -> "Your phone is now running a DigiByte node. Use the core console to issue advanced commands."
-            is NodeState.Syncing, NodeState.ConnectingToPeers -> "Node is running; waiting for sync details (CLI not available in this build)."
+            is NodeState.Syncing -> {
+                val hasDetails =
+                    state.currentHeight != null && state.headerHeight != null && state.progress != null
+                val peersText = state.peerCount?.let { " with $it peers" } ?: ""
+                val percent = state.progress?.let { (it * 100).roundToInt().coerceIn(0, 100) }
+
+                if (hasDetails && percent != null) {
+                    "Syncing: height ${state.currentHeight} / ${state.headerHeight} (~${percent}%$peersText)"
+                } else {
+                    "Node is running; waiting for sync details (digibyte-cli not available in this build)."
+                }
+            }
+            NodeState.ConnectingToPeers -> "Node is running; waiting for peer connections and sync details…"
             is NodeState.Error -> "Node failed to start. Return to the home screen and try again."
             else -> "We’ll download the DigiByte node binaries and sync the blockchain on this device."
         }

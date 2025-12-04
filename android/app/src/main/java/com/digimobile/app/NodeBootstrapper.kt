@@ -27,7 +27,7 @@ class NodeBootstrapper(private val context: Context) {
 
     fun ensureBootstrap(): NodePaths {
         val dataDir = File(context.filesDir, "digibyte")
-        val binDir = File(context.filesDir, "bin")
+        val binDir = File(dataDir.parentFile, "bin")
 
         dataDir.mkdirs()
         binDir.mkdirs()
@@ -53,7 +53,8 @@ class NodeBootstrapper(private val context: Context) {
     }
 
     fun ensureCliBinary(): File? {
-        val binDir = File(context.filesDir, "bin")
+        val dataDir = File(context.filesDir, "digibyte")
+        val binDir = File(dataDir.parentFile, "bin")
         binDir.mkdirs()
 
         val cliBinary = File(binDir, "digibyte-cli")
@@ -74,7 +75,7 @@ class NodeBootstrapper(private val context: Context) {
             if (!cliMissingLogged) {
                 Log.w(
                     TAG,
-                    "digibyte-cli asset missing; TODO: add digibyte-cli to assets/bin for console and RPC support."
+                    "digibyte-cli asset missing; CLI features will be disabled."
                 )
                 cliMissingLogged = true
             }
@@ -90,7 +91,7 @@ class NodeBootstrapper(private val context: Context) {
         private const val TAG = "NodeBootstrapper"
         private const val PREFS_NAME = "digimobile_prefs"
         private const val KEY_BOOTSTRAP_COMPLETE = "bootstrap_complete"
-        private const val CLI_ASSET_PATH = "bin/digibyte-cli-arm64"
+        private const val CLI_ASSET_PATH = "bin/digibyte-cli"
 
         /**
          * The digibyte-cli binary must be staged under assets/bin for installation.
