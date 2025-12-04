@@ -27,6 +27,7 @@ class NodeService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private lateinit var nodeManager: NodeManager
     private var stateJob: Job? = null
+    private var isStopping = false
 
     override fun onCreate() {
         super.onCreate()
@@ -34,6 +35,23 @@ class NodeService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        val action = intent?.action
+        if (action == ACTION_STOP) {
+            nodeManager.appendLog("NodeService received stop action")
+            startForeground(
+                NOTIFICATION_ID,
+                buildNotification("Stopping Digi-Mobile node…")
+            )
+            stateJob?.cancel()
+            isStopping = true
+            scope.launch {
+                nodeManager.stopNode()
+                stopForeground(STOP_FOREGROUND_REMOVE)
+                stopSelf()
+            }
+            return START_NOT_STICKY
+        }
+
         startForeground(
             NOTIFICATION_ID,
             buildNotification(nodeManager.nodeState.value.toNotificationText())
@@ -53,8 +71,14 @@ class NodeService : Service() {
         super.onDestroy()
         nodeManager.appendLog("NodeService stopping")
         stateJob?.cancel()
-        val stopJob = nodeManager.stopNode()
-        stopJob.invokeOnCompletion { scope.coroutineContext.cancel() }
+        if (!isStopping) {
+            scope.launch {
+                nodeManager.stopNode()
+                scope.coroutineContext.cancel()
+            }
+        } else {
+            scope.coroutineContext.cancel()
+        }
         stopForeground(STOP_FOREGROUND_REMOVE)
     }
 
@@ -123,5 +147,6 @@ class NodeService : Service() {
         private const val TAG = "NodeService"
         private const val CHANNEL_ID = "digimobile-node"
         private const val NOTIFICATION_ID = 1001
+        const val ACTION_STOP = "com.digimobile.action.STOP"
     }
 }

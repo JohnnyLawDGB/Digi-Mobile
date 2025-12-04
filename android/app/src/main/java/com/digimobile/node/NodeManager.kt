@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import kotlin.math.roundToInt
 
@@ -60,10 +61,67 @@ class NodeManager(
         }
     }
 
-    fun stopNode(): Job = scope.launch(Dispatchers.IO) {
-        runCatching { controller.stopNode() }
-        appendLog("Node stopped")
-        _nodeState.value = NodeState.Idle
+    suspend fun stopNode() = withContext(Dispatchers.IO) {
+        val paths = lastNodePaths ?: runCatching { bootstrapper.ensureBootstrap() }.getOrNull()
+        if (paths == null) {
+            val message = "Cannot stop node without configuration paths"
+            appendLog("Error: $message")
+            _nodeState.value = NodeState.Error(message)
+            return
+        }
+
+        val cliBinary = File(context.filesDir, "bin/digibyte-cli")
+        if (!cliBinary.exists()) {
+            val message = "digibyte-cli is missing; cannot send stop command"
+            appendLog("Error: $message")
+            _nodeState.value = NodeState.Error(message)
+            return
+        }
+
+        try {
+            appendLog("Stopping DigiByte daemon…")
+            val stopProcess = ProcessBuilder(
+                cliBinary.absolutePath,
+                "-conf=${paths.configFile.absolutePath}",
+                "-datadir=${paths.dataDir.absolutePath}",
+                "stop"
+            )
+                .redirectErrorStream(true)
+                .start()
+
+            val output = stopProcess.inputStream.bufferedReader().use { it.readText() }.trim()
+            val exitCode = stopProcess.waitFor()
+            if (exitCode != 0) {
+                throw IllegalStateException("digibyte-cli stop failed with exit $exitCode: $output")
+            }
+
+            if (output.isNotEmpty()) {
+                appendLog(output)
+            }
+
+            waitForShutdown()
+        } catch (e: Exception) {
+            val message = e.message ?: "Unknown error stopping node"
+            appendLog("Error: $message")
+            _nodeState.value = NodeState.Error(message)
+        }
+    }
+
+    private suspend fun waitForShutdown() {
+        val deadline = System.currentTimeMillis() + STOP_TIMEOUT_MS
+        while (System.currentTimeMillis() < deadline) {
+            val status = runCatching { controller.getStatus() }.getOrNull()
+            val isRunning = status?.equals("RUNNING", ignoreCase = true) == true
+            if (!isRunning) {
+                updateState(NodeState.Idle, "Node stopped")
+                return
+            }
+            delay(STOP_POLL_DELAY_MS)
+        }
+
+        val message = "Node did not stop within ${STOP_TIMEOUT_MS / 1000} seconds"
+        appendLog("Error: $message")
+        _nodeState.value = NodeState.Error(message)
     }
 
     private suspend fun monitorSyncState() {
@@ -182,6 +240,8 @@ class NodeManager(
     companion object {
         private const val SYNC_TOLERANCE = 2L
         private const val READY_THRESHOLD_PERCENT = 99.9
+        private const val STOP_TIMEOUT_MS = 30_000L
+        private const val STOP_POLL_DELAY_MS = 1_000L
     }
 
     fun appendLog(message: String) {
