@@ -1,5 +1,6 @@
 package com.digimobile.app
 
+import android.Manifest
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -7,6 +8,7 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.IBinder
 import android.util.Log
@@ -32,6 +34,11 @@ class NodeService : Service() {
     override fun onCreate() {
         super.onCreate()
         nodeManager = NodeManagerProvider.get(this)
+        Log.i(
+            TAG,
+            "NodeService created; app has INTERNET permission = " +
+                (checkSelfPermission(Manifest.permission.INTERNET) == PackageManager.PERMISSION_GRANTED)
+        )
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
