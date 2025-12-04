@@ -44,39 +44,20 @@ class MainActivity : AppCompatActivity() {
 
     private fun startNodeFlow() {
         binding.buttonStartNode.isEnabled = false
-        updateStatusLabel("Preparing node...")
+        updateStatusLabel("Starting node service...")
 
-        lifecycleScope.launch(Dispatchers.IO) {
-            try {
-                // Ensure directories/config are ready even before the service runs.
-                val paths = bootstrapper.ensureBootstrap()
-                withContext(Dispatchers.Main) {
-                    val intent = Intent(this@MainActivity, NodeService::class.java)
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        startForegroundService(intent)
-                    } else {
-                        @Suppress("DEPRECATION")
-                        startService(intent)
-                    }
-                    updateStatusLabel("Starting node service...")
-                }
-
-                observeNodeStartup(paths)
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    updateStatusLabel("Failed to start: ${e.message}")
-                    binding.buttonStartNode.isEnabled = true
-                    Toast.makeText(
-                        this@MainActivity,
-                        "Bootstrap failed: ${e.message}",
-                        Toast.LENGTH_LONG
-                    ).show()
-                }
-            }
+        val intent = Intent(this@MainActivity, NodeService::class.java)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(intent)
+        } else {
+            @Suppress("DEPRECATION")
+            startService(intent)
         }
+
+        lifecycleScope.launch { observeNodeStartup() }
     }
 
-    private fun observeNodeStartup(paths: NodeBootstrapper.NodePaths) {
+    private fun observeNodeStartup() {
         lifecycleScope.launch {
             var lastStatus = "UNKNOWN"
             repeat(15) {
@@ -87,8 +68,6 @@ class MainActivity : AppCompatActivity() {
                 if (statusUpper == "RUNNING") {
                     binding.buttonStartNode.isEnabled = false
                     binding.buttonStartNode.text = "Node running"
-                    binding.textSteps.text =
-                        "Node is running in the background. Config: ${paths.configFile.absolutePath}\nLogs: ${paths.logsDir.absolutePath}\nLeave the app open for initial sync."
                     Toast.makeText(
                         this@MainActivity,
                         "Node service started. Status: $lastStatus",
@@ -102,8 +81,6 @@ class MainActivity : AppCompatActivity() {
 
             binding.buttonStartNode.isEnabled = true
             binding.buttonStartNode.text = "Retry start"
-            binding.textSteps.text =
-                "Node did not report RUNNING. Status: $lastStatus\nCheck that the digibyted asset is present and review logs at ${paths.logsDir.absolutePath}."
             Toast.makeText(
                 this@MainActivity,
                 "Node status did not reach RUNNING (last: $lastStatus)",
