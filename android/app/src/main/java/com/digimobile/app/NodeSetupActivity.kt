@@ -283,11 +283,7 @@ class NodeSetupActivity : AppCompatActivity() {
             NodeState.WritingConfig,
             NodeState.StartingDaemon,
             NodeState.ConnectingToPeers,
-            is NodeState.Syncing -> {
-                binding.buttonAction.text = "Stop node"
-                binding.buttonAction.isEnabled = true
-                binding.buttonAction.setOnClickListener { confirmStopNode() }
-            }
+            is NodeState.Syncing,
             NodeState.Ready -> {
                 binding.buttonAction.text = "Open core console"
                 binding.buttonAction.isEnabled = true
