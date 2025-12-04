@@ -5,11 +5,16 @@ plugins {
     id 'org.jetbrains.kotlin.android'
 }
 
+def targetAbis = (System.getenv("ANDROID_ABI") ?: "arm64-v8a")
+        .split(',')
+        .collect { it.trim() }
+        .findAll { !it.isEmpty() }
+
+def verifyDigibytedAssetEnabled = providers.gradleProperty("digibyted.verifyAsset")
+        .map { it.toBoolean() }
+        .orElse(true)
+
 android {
-    def targetAbis = (System.getenv("ANDROID_ABI") ?: "arm64-v8a")
-            .split(',')
-            .collect { it.trim() }
-            .findAll { !it.isEmpty() }
 
     namespace 'com.digimobile.app'
     compileSdk 34
@@ -80,10 +85,17 @@ android {
 }
 
 tasks.register("verifyDigibytedAsset") {
+    onlyIf { verifyDigibytedAssetEnabled.get() }
+
     doLast {
+        if (!targetAbis.contains("arm64-v8a")) {
+            logger.lifecycle("Skipping digibyted asset check because arm64-v8a is not targeted (targetAbis=${targetAbis}).")
+            return
+        }
+
         def binaryAsset = file("${projectDir}/src/main/assets/bin/digibyted-arm64")
         if (!binaryAsset.exists()) {
-            throw new GradleException("Missing digibyted asset at ${binaryAsset}. Run scripts/build-android.sh to build and stage the daemon before packaging.")
+            throw new GradleException("Missing digibyted asset at ${binaryAsset}. Run scripts/build-android.sh to build and stage the daemon before packaging, or pass -Pdigibyted.verifyAsset=false to bypass this check.")
         }
     }
 }
