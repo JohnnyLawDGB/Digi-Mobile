@@ -16,3 +16,16 @@ sealed class NodeState {
     data object Ready : NodeState()
     data class Error(val message: String) : NodeState()
 }
+
+fun NodeState.toUserMessage(): String = when (this) {
+    NodeState.Idle -> "Not running"
+    NodeState.PreparingEnvironment -> "Preparing environment..."
+    is NodeState.DownloadingBinaries -> "Downloading binaries (${this.progress}%)..."
+    NodeState.VerifyingBinaries -> "Verifying binaries..."
+    NodeState.WritingConfig -> "Writing configuration..."
+    NodeState.StartingDaemon -> "Starting DigiByte daemon..."
+    NodeState.ConnectingToPeers -> "Connecting to peers..."
+    is NodeState.Syncing -> "Syncing (${this.progress}%) height ${this.currentHeight}/${this.targetHeight}"
+    NodeState.Ready -> "Node running"
+    is NodeState.Error -> "Error: ${this.message}"
+}

@@ -12,6 +12,7 @@ import com.digimobile.app.databinding.ActivityMainBinding
 import com.digimobile.node.NodeManager
 import com.digimobile.node.NodeManagerProvider
 import com.digimobile.node.NodeState
+import com.digimobile.node.toUserMessage
 import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
@@ -39,7 +40,12 @@ class MainActivity : AppCompatActivity() {
                 "First launch detected. Tap the button to create private config/data/log folders and start the node."
         }
 
-        binding.buttonStartNode.setOnClickListener { startNodeFlow() }
+        binding.buttonStartNode.setOnClickListener {
+            startNodeFlow()
+            openNodeSetupActivity()
+        }
+        binding.buttonDetails.setOnClickListener { openNodeSetupActivity() }
+        binding.textStatus.setOnClickListener { openNodeSetupActivity() }
 
         observeNodeState()
     }
@@ -65,19 +71,6 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
-    }
-
-    private fun NodeState.toUserMessage(): String = when (this) {
-        NodeState.Idle -> "Not running"
-        NodeState.PreparingEnvironment -> "Preparing environment..."
-        is NodeState.DownloadingBinaries -> "Downloading binaries (${this.progress}%)..."
-        NodeState.VerifyingBinaries -> "Verifying binaries..."
-        NodeState.WritingConfig -> "Writing configuration..."
-        NodeState.StartingDaemon -> "Starting DigiByte daemon..."
-        NodeState.ConnectingToPeers -> "Connecting to peers..."
-        is NodeState.Syncing -> "Syncing (${this.progress}%) height ${this.currentHeight}/${this.targetHeight}"
-        NodeState.Ready -> "Node running"
-        is NodeState.Error -> "Error: ${this.message}"
     }
 
     private fun updateButtonForState(state: NodeState) {
@@ -119,5 +112,10 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateStatusLabel(status: String) {
         binding.textStatus.text = "Status: $status"
+    }
+
+    private fun openNodeSetupActivity() {
+        val intent = Intent(this, NodeSetupActivity::class.java)
+        startActivity(intent)
     }
 }
