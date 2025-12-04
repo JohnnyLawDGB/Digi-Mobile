@@ -26,6 +26,18 @@
             android:textAppearance="@style/TextAppearance.AppCompat.Small" />
 
         <TextView
+            android:id="@+id/textErrorBanner"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:background="@android:color/holo_red_light"
+            android:padding="8dp"
+            android:textColor="@android:color/white"
+            android:textStyle="bold"
+            android:text="Node failed to start"
+            android:visibility="gone" />
+
+        <TextView
             android:id="@+id/textMainStatus"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

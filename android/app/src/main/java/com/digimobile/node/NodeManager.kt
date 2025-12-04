@@ -14,6 +14,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.json.JSONObject
 import kotlin.math.roundToInt
 
@@ -36,9 +38,35 @@ class NodeManager(
     )
     val logLines: SharedFlow<String> = _logLines.asSharedFlow()
 
+    private val startMutex = Mutex()
+
     fun startNode(): Job = scope.launch(Dispatchers.IO) {
-        try {
+        val canStart = startMutex.withLock {
+            val currentState = _nodeState.value
+            val blockedClasses = setOf(
+                NodeState.PreparingEnvironment::class,
+                NodeState.DownloadingBinaries::class,
+                NodeState.VerifyingBinaries::class,
+                NodeState.WritingConfig::class,
+                NodeState.StartingDaemon::class,
+                NodeState.ConnectingToPeers::class,
+                NodeState.Syncing::class,
+                NodeState.Ready::class,
+            )
+
+            if (blockedClasses.contains(currentState::class)) {
+                // If JNI logs indicate the node was already running, revisit this guard.
+                appendLog("Node start requested but state is $currentState; ignoring duplicate start request.")
+                return@withLock false
+            }
+
             updateState(NodeState.PreparingEnvironment, "Preparing environment…")
+            true
+        }
+
+        if (!canStart) return@launch
+
+        try {
             val paths = bootstrapper.ensureBootstrap()
             lastNodePaths = paths
             ensureCliAvailable()
@@ -48,11 +76,26 @@ class NodeManager(
             updateState(NodeState.WritingConfig, "Writing configuration…")
             updateState(NodeState.StartingDaemon, "Starting DigiByte daemon…")
 
-            controller.startNode(
-                context.applicationContext,
-                paths.configFile.absolutePath,
-                paths.dataDir.absolutePath
-            )
+            try {
+                controller.startNode(
+                    context.applicationContext,
+                    paths.configFile.absolutePath,
+                    paths.dataDir.absolutePath
+                )
+            } catch (startError: Exception) {
+                val message = startError.message ?: "Unknown native start error"
+                appendLog("Native startNode failed: $message")
+                _nodeState.value = NodeState.Error("Native startNode failed: $message")
+                return@launch
+            }
+
+            val status = waitForRunningStatus()
+            if (!status.equals("RUNNING", ignoreCase = true)) {
+                val message = "DigiByte node failed to start (status: ${status ?: "unknown"}). Check logs for details."
+                appendLog(message)
+                _nodeState.value = NodeState.Error(message)
+                return@launch
+            }
 
             updateState(NodeState.ConnectingToPeers, "Connecting to peers…")
             monitorSyncState()
@@ -140,11 +183,13 @@ class NodeManager(
             if (status != null) {
                 when {
                     status.equals("ERROR", ignoreCase = true) -> {
-                        updateState(NodeState.Error("Node reported ERROR status"), "Node reported ERROR status")
+                        val message = "DigiByte node stopped unexpectedly. It may not be supported on this device/emulator."
+                        updateState(NodeState.Error(message), message)
                         return
                     }
                     status.equals("NOT_RUNNING", ignoreCase = true) -> {
-                        updateState(NodeState.Error("Node stopped unexpectedly"), "Node stopped unexpectedly")
+                        val message = "DigiByte node stopped unexpectedly. It may not be supported on this device/emulator."
+                        updateState(NodeState.Error(message), message)
                         return
                     }
                 }
@@ -243,6 +288,8 @@ class NodeManager(
         private const val READY_THRESHOLD_PERCENT = 99.9
         private const val STOP_TIMEOUT_MS = 30_000L
         private const val STOP_POLL_DELAY_MS = 1_000L
+        private const val START_STATUS_RETRY_DELAY_MS = 1_000L
+        private const val START_STATUS_MAX_ATTEMPTS = 30
     }
 
     private fun ensureCliAvailable(): Boolean {
@@ -284,5 +331,28 @@ class NodeManager(
     private fun updateState(state: NodeState, logMessage: String) {
         _nodeState.value = state
         appendLog(logMessage)
+    }
+
+    private suspend fun waitForRunningStatus(): String? {
+        var lastStatus: String? = null
+        repeat(START_STATUS_MAX_ATTEMPTS) {
+            lastStatus = runCatching { controller.getStatus() }.getOrElse { error ->
+                appendLog("Failed to read node status: ${error.message}")
+                null
+            }
+
+            if (lastStatus?.equals("RUNNING", ignoreCase = true) == true) {
+                return lastStatus
+            }
+
+            if (lastStatus?.equals("ERROR", ignoreCase = true) == true ||
+                lastStatus?.equals("BINARY_MISSING", ignoreCase = true) == true
+            ) {
+                return lastStatus
+            }
+
+            delay(START_STATUS_RETRY_DELAY_MS)
+        }
+        return lastStatus
     }
 }
