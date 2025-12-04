@@ -67,7 +67,7 @@ class NodeManager(
             val message = "Cannot stop node without configuration paths"
             appendLog("Error: $message")
             _nodeState.value = NodeState.Error(message)
-            return
+            return@withContext
         }
 
         val cliBinary = File(context.filesDir, "bin/digibyte-cli")
@@ -75,7 +75,7 @@ class NodeManager(
             val message = "digibyte-cli is missing; cannot send stop command"
             appendLog("Error: $message")
             _nodeState.value = NodeState.Error(message)
-            return
+            return@withContext
         }
 
         try {
