@@ -79,6 +79,17 @@ android {
     }
 }
 
+tasks.register("verifyDigibytedAsset") {
+    doLast {
+        def binaryAsset = file("${projectDir}/src/main/assets/bin/digibyted-arm64")
+        if (!binaryAsset.exists()) {
+            throw new GradleException("Missing digibyted asset at ${binaryAsset}. Run scripts/build-android.sh to build and stage the daemon before packaging.")
+        }
+    }
+}
+
+preBuild.dependsOn(tasks.named("verifyDigibytedAsset"))
+
 dependencies {
     implementation 'androidx.core:core-ktx:1.13.1'
     implementation 'androidx.appcompat:appcompat:1.7.0'
