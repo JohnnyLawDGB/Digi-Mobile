@@ -10,9 +10,13 @@ def targetAbis = (System.getenv("ANDROID_ABI") ?: "arm64-v8a")
         .collect { it.trim() }
         .findAll { !it.isEmpty() }
 
+def isReleaseBuildRequested = gradle.startParameter.taskNames
+        .collect { it.toLowerCase() }
+        .any { it.contains("release") }
+
 def verifyDigibytedAssetEnabled = providers.gradleProperty("digibyted.verifyAsset")
         .map { it.toBoolean() }
-        .orElse(true)
+        .orElse(isReleaseBuildRequested)
 
 android {
 
