@@ -13,13 +13,21 @@ import com.digimobile.node.NodeManager
 import com.digimobile.node.NodeManagerProvider
 import com.digimobile.node.NodeState
 import com.digimobile.node.toUserMessage
+import java.util.ArrayDeque
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 class NodeSetupActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityNodeSetupBinding
     private lateinit var nodeManager: NodeManager
     private var lastNodeState: NodeState = NodeState.Idle
+    private val logBuffer = ArrayDeque<String>()
+
+    companion object {
+        private const val MAX_LOG_LINES = 500
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -30,11 +38,22 @@ class NodeSetupActivity : AppCompatActivity() {
 
         setupLogsPlaceholder()
         observeNodeState()
+        observeLogs()
     }
 
     private fun setupLogsPlaceholder() {
         binding.textLogs.text = "Detailed logs will appear here."
         binding.textLogs.movementMethod = ScrollingMovementMethod()
+    }
+
+    private fun observeLogs() {
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                nodeManager.logLines.collect { line ->
+                    withContext(Dispatchers.Main) { appendLogLine(line) }
+                }
+            }
+        }
     }
 
     private fun observeNodeState() {
@@ -53,6 +72,14 @@ class NodeSetupActivity : AppCompatActivity() {
         updateProgress(state)
         updateSteps(state, previousState)
         updateActionButton(state)
+    }
+
+    private fun appendLogLine(line: String) {
+        logBuffer.addLast(line)
+        while (logBuffer.size > MAX_LOG_LINES) {
+            logBuffer.removeFirst()
+        }
+        binding.textLogs.text = logBuffer.joinToString(separator = "\n")
     }
 
     private fun updateProgress(state: NodeState) {

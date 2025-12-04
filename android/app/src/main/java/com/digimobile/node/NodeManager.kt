@@ -6,9 +6,12 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.launch
 
 class NodeManager(
     private val context: Context,
@@ -20,15 +23,21 @@ class NodeManager(
     private val _nodeState = MutableStateFlow<NodeState>(NodeState.Idle)
     val nodeState: StateFlow<NodeState> get() = _nodeState
 
+    private val _logLines = MutableSharedFlow<String>(
+        extraBufferCapacity = 100,
+        replay = 0
+    )
+    val logLines: SharedFlow<String> = _logLines.asSharedFlow()
+
     fun startNode(): Job = scope.launch(Dispatchers.IO) {
         try {
-            _nodeState.value = NodeState.PreparingEnvironment
+            updateState(NodeState.PreparingEnvironment, "Preparing environment…")
             val paths = bootstrapper.ensureBootstrap()
 
-            _nodeState.value = NodeState.DownloadingBinaries(progress = 100)
-            _nodeState.value = NodeState.VerifyingBinaries
-            _nodeState.value = NodeState.WritingConfig
-            _nodeState.value = NodeState.StartingDaemon
+            updateState(NodeState.DownloadingBinaries(progress = 100), "Downloading binaries (100%)…")
+            updateState(NodeState.VerifyingBinaries, "Verifying binaries…")
+            updateState(NodeState.WritingConfig, "Writing configuration…")
+            updateState(NodeState.StartingDaemon, "Starting DigiByte daemon…")
 
             controller.startNode(
                 context.applicationContext,
@@ -36,15 +45,18 @@ class NodeManager(
                 paths.dataDir.absolutePath
             )
 
-            _nodeState.value = NodeState.ConnectingToPeers
+            updateState(NodeState.ConnectingToPeers, "Connecting to peers…")
             monitorSyncState()
         } catch (e: Exception) {
-            _nodeState.value = NodeState.Error(e.message ?: "Unknown error starting node")
+            val message = e.message ?: "Unknown error starting node"
+            appendLog("Error: $message")
+            _nodeState.value = NodeState.Error(message)
         }
     }
 
     fun stopNode(): Job = scope.launch(Dispatchers.IO) {
         runCatching { controller.stopNode() }
+        appendLog("Node stopped")
         _nodeState.value = NodeState.Idle
     }
 
@@ -58,11 +70,11 @@ class NodeManager(
             if (status != null) {
                 when {
                     status.equals("RUNNING", ignoreCase = true) && progress >= 100 -> {
-                        _nodeState.value = NodeState.Ready
+                        updateState(NodeState.Ready, "Node is ready")
                         return
                     }
                     status.equals("ERROR", ignoreCase = true) -> {
-                        _nodeState.value = NodeState.Error("Node reported ERROR status")
+                        updateState(NodeState.Error("Node reported ERROR status"), "Node reported ERROR status")
                         return
                     }
                 }
@@ -70,14 +82,26 @@ class NodeManager(
 
             progress = (progress + 10).coerceAtMost(100)
             currentHeight = (currentHeight + 1).coerceAtMost(targetHeight)
-            _nodeState.value = NodeState.Syncing(progress, currentHeight, targetHeight)
+            updateState(
+                NodeState.Syncing(progress, currentHeight, targetHeight),
+                "Syncing: height $currentHeight / $targetHeight ($progress%)"
+            )
 
             if (progress >= 100) {
-                _nodeState.value = NodeState.Ready
+                updateState(NodeState.Ready, "Node is ready")
                 return
             }
 
             delay(1_000)
         }
+    }
+
+    fun appendLog(message: String) {
+        _logLines.tryEmit(message)
+    }
+
+    private fun updateState(state: NodeState, logMessage: String) {
+        _nodeState.value = state
+        appendLog(logMessage)
     }
 }

@@ -38,15 +38,20 @@ class NodeService : Service() {
             NOTIFICATION_ID,
             buildNotification(nodeManager.nodeState.value.toNotificationText())
         )
+        nodeManager.appendLog("NodeService started")
         startStateUpdates()
         nodeManager.startNode().invokeOnCompletion { throwable ->
-            throwable?.let { Log.e(TAG, "Failed to start node: ${it.message}", it) }
+            throwable?.let {
+                nodeManager.appendLog("Node start failed: ${it.message}")
+                Log.e(TAG, "Failed to start node: ${it.message}", it)
+            }
         }
         return START_STICKY
     }
 
     override fun onDestroy() {
         super.onDestroy()
+        nodeManager.appendLog("NodeService stopping")
         stateJob?.cancel()
         val stopJob = nodeManager.stopNode()
         stopJob.invokeOnCompletion { scope.coroutineContext.cancel() }
