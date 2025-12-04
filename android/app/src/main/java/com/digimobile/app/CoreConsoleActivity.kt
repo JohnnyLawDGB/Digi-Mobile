@@ -43,9 +43,12 @@ class CoreConsoleActivity : AppCompatActivity() {
         nodeManager = NodeManagerProvider.get(applicationContext)
         bootstrapper = NodeBootstrapper(applicationContext)
 
-        binding.textConsole.text = "digibyte-cli console ready."
-
-        refreshCliAvailability()
+        cliAvailable = nodeManager.cliAvailable
+        if (cliAvailable) {
+            binding.textConsole.text = "digibyte-cli console ready."
+        } else {
+            showCliUnavailableMessage()
+        }
 
         binding.buttonSend.setOnClickListener { onSendCommand() }
         binding.inputCommand.setOnEditorActionListener(TextView.OnEditorActionListener { _, actionId, _ ->
@@ -63,6 +66,7 @@ class CoreConsoleActivity : AppCompatActivity() {
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 nodeManager.nodeState.collect { state ->
+                    cliAvailable = nodeManager.cliAvailable
                     lastNodeState = state
                     binding.textStatus.text = "Node status: ${state.toUserMessage(this@CoreConsoleActivity)}"
                     if (!cliAvailable) {
@@ -92,6 +96,7 @@ class CoreConsoleActivity : AppCompatActivity() {
             showWarning("Node is not ready yet. Wait for full sync before sending commands.")
             return
         }
+        cliAvailable = nodeManager.cliAvailable
         if (!cliAvailable) {
             showCliUnavailableMessage()
             return
@@ -180,21 +185,10 @@ class CoreConsoleActivity : AppCompatActivity() {
         binding.inputCommand.isEnabled = enabled
     }
 
-    private fun refreshCliAvailability() {
-        lifecycleScope.launch {
-            val available = withContext(Dispatchers.IO) { bootstrapper.ensureCliBinary()?.exists() == true }
-            if (!available) {
-                withContext(Dispatchers.Main) { showCliUnavailableMessage() }
-            } else {
-                cliAvailable = true
-            }
-        }
-    }
-
     private fun showCliUnavailableMessage() {
         cliAvailable = false
-        binding.textConsole.text = "digibyte-cli is not available in this build of Digi-Mobile."
-        showWarning("digibyte-cli is not available in this build of Digi-Mobile.")
+        binding.textConsole.text = "digibyte-cli is not available in this build of Digi-Mobile, so the core console is disabled."
+        showWarning("digibyte-cli is not available in this build of Digi-Mobile, so the core console is disabled.")
         setCommandInputEnabled(false)
     }
 

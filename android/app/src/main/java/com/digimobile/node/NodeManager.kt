@@ -31,6 +31,10 @@ class NodeManager(
 
     private var lastNodePaths: NodeBootstrapper.NodePaths? = null
     private var cliAvailability: CliAvailability = CliAvailability.Unknown
+    val cliAvailable: Boolean
+        get() = evaluateCliAvailability()
+
+    private var cliWarningLogged: Boolean = false
 
     private val _logLines = MutableSharedFlow<String>(
         extraBufferCapacity = 100,
@@ -69,7 +73,7 @@ class NodeManager(
         try {
             val paths = bootstrapper.ensureBootstrap()
             lastNodePaths = paths
-            ensureCliAvailable()
+            evaluateCliAvailability()
 
             updateState(NodeState.DownloadingBinaries(progress = 100), "Downloading binaries (100%)…")
             updateState(NodeState.VerifyingBinaries, "Verifying binaries…")
@@ -107,50 +111,71 @@ class NodeManager(
     }
 
     suspend fun stopNode() = withContext(Dispatchers.IO) {
-        val paths = lastNodePaths ?: runCatching { bootstrapper.ensureBootstrap() }.getOrNull()
-        if (paths == null) {
-            val message = "Cannot stop node without configuration paths"
-            appendLog("Error: $message")
-            _nodeState.value = NodeState.Error(message)
-            return@withContext
-        }
-
-        if (!ensureCliAvailable()) {
-            val message = "digibyte-cli is not available; cannot send stop command"
-            appendLog("Error: $message")
-            _nodeState.value = NodeState.Error(message)
-            return@withContext
-        }
-
-        val cliBinary = File(context.filesDir, "bin/digibyte-cli")
-
         try {
-            appendLog("Stopping DigiByte daemon…")
-            val stopProcess = ProcessBuilder(
-                cliBinary.absolutePath,
-                "-conf=${paths.configFile.absolutePath}",
-                "-datadir=${paths.dataDir.absolutePath}",
-                "stop"
-            )
-                .redirectErrorStream(true)
-                .start()
-
-            val output = stopProcess.inputStream.bufferedReader().use { it.readText() }.trim()
-            val exitCode = stopProcess.waitFor()
-            if (exitCode != 0) {
-                throw IllegalStateException("digibyte-cli stop failed with exit $exitCode: $output")
+            val cliAvailable = evaluateCliAvailability()
+            if (cliAvailable) {
+                stopWithCli()
+            } else {
+                appendLog("Stopping DigiByte daemon without digibyte-cli (using native controller).")
+                stopWithController()
             }
-
-            if (output.isNotEmpty()) {
-                appendLog(output)
-            }
-
-            waitForShutdown()
         } catch (e: Exception) {
             val message = e.message ?: "Unknown error stopping node"
             appendLog("Error: $message")
-            _nodeState.value = NodeState.Error(message)
+            _nodeState.value = NodeState.Error("Failed to stop node")
         }
+    }
+
+    private suspend fun stopWithCli() {
+        val paths = lastNodePaths ?: runCatching { bootstrapper.ensureBootstrap() }.getOrNull()
+        if (paths == null) {
+            appendLog("Missing node paths for CLI stop; attempting native shutdown instead.")
+            stopWithController()
+            return
+        }
+
+        val cliBinary = File(context.filesDir, "bin/digibyte-cli")
+        if (!cliBinary.exists()) {
+            appendLog("digibyte-cli binary missing on disk; attempting native shutdown instead.")
+            stopWithController()
+            return
+        }
+
+        appendLog("Stopping DigiByte daemon…")
+        val stopProcess = ProcessBuilder(
+            cliBinary.absolutePath,
+            "-conf=${paths.configFile.absolutePath}",
+            "-datadir=${paths.dataDir.absolutePath}",
+            "stop"
+        )
+            .redirectErrorStream(true)
+            .start()
+
+        val output = stopProcess.inputStream.bufferedReader().use { it.readText() }.trim()
+        val exitCode = stopProcess.waitFor()
+        if (exitCode != 0) {
+            appendLog("digibyte-cli stop failed with exit $exitCode: $output")
+            stopWithController()
+            return
+        }
+
+        if (output.isNotEmpty()) {
+            appendLog(output)
+        }
+
+        waitForShutdown()
+    }
+
+    private suspend fun stopWithController() {
+        runCatching { controller.stopNode() }
+            .onFailure { error ->
+                val message = error.message ?: "Failed to stop node via controller"
+                appendLog("Error: $message")
+                _nodeState.value = NodeState.Error("Failed to stop node")
+                return
+            }
+
+        waitForShutdown()
     }
 
     private suspend fun waitForShutdown() {
@@ -167,7 +192,7 @@ class NodeManager(
 
         val message = "Node did not stop within ${STOP_TIMEOUT_MS / 1000} seconds"
         appendLog("Error: $message")
-        _nodeState.value = NodeState.Error(message)
+        _nodeState.value = NodeState.Error("Failed to stop node")
     }
 
     private suspend fun monitorSyncState() {
@@ -195,7 +220,7 @@ class NodeManager(
                 }
             }
 
-            val cliAvailable = ensureCliAvailable()
+            val cliAvailable = evaluateCliAvailability()
             val blockchainInfo = if (cliAvailable) queryBlockchainInfo(paths) else null
             val targetHeight = blockchainInfo?.targetHeight
             val currentHeight = blockchainInfo?.blocks
@@ -212,20 +237,21 @@ class NodeManager(
                 NodeState.Syncing(progress?.roundToInt(), currentHeight, targetHeight)
             }
 
+            val syncLogMessage = when {
+                isSynced -> "Node is fully synced and ready"
+                !cliAvailable && blockchainInfo == null -> "Syncing: height unknown (digibyte-cli not available in this build)"
+                else -> formatSyncLog(currentHeight, targetHeight, progress)
+            }
+
             val currentState = _nodeState.value
             if (currentState != nextState) {
-                val logMessage = if (isSynced) {
-                    "Node is fully synced and ready"
-                } else {
-                    formatSyncLog(currentHeight, targetHeight, progress)
-                }
-                updateState(nextState, logMessage)
+                updateState(nextState, syncLogMessage)
             } else if (nextState is NodeState.Syncing && currentState is NodeState.Syncing) {
                 if (currentState.progress != nextState.progress ||
                     currentState.currentHeight != nextState.currentHeight ||
                     currentState.targetHeight != nextState.targetHeight
                 ) {
-                    updateState(nextState, formatSyncLog(currentHeight, targetHeight, progress))
+                    updateState(nextState, syncLogMessage)
                 }
             }
 
@@ -292,20 +318,20 @@ class NodeManager(
         private const val START_STATUS_MAX_ATTEMPTS = 30
     }
 
-    private fun ensureCliAvailable(): Boolean {
+    private fun evaluateCliAvailability(): Boolean {
         if (cliAvailability == CliAvailability.Available) return true
         if (cliAvailability == CliAvailability.Missing) return false
 
         val cliBinary = bootstrapper.ensureCliBinary()
         val isPresent = cliBinary?.exists() == true
-        if (isPresent) {
-            cliAvailability = CliAvailability.Available
-            return true
+        cliAvailability = if (isPresent) CliAvailability.Available else CliAvailability.Missing
+
+        if (!isPresent && !cliWarningLogged) {
+            appendLog("digibyte-cli asset is not available in this build; CLI features will be disabled.")
+            cliWarningLogged = true
         }
 
-        appendLog("digibyte-cli is not available in this build; falling back to basic sync state.")
-        cliAvailability = CliAvailability.Missing
-        return false
+        return isPresent
     }
 
     private fun formatSyncLog(currentHeight: Long?, targetHeight: Long?, progress: Double?): String {
