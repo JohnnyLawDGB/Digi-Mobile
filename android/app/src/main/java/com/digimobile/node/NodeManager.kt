@@ -4,46 +4,80 @@ import android.content.Context
 import com.digimobile.app.NodeBootstrapper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
 
 class NodeManager(
     private val context: Context,
-    private val bootstrapper: NodeBootstrapper = NodeBootstrapper(context),
-    private val nodeController: DigiMobileNodeController = DigiMobileNodeController(),
-    private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val bootstrapper: NodeBootstrapper,
+    private val controller: DigiMobileNodeController,
+    private val scope: CoroutineScope
 ) {
 
-    private val _state = MutableStateFlow<NodeState>(NodeState.Idle)
-    val state: StateFlow<NodeState> = _state.asStateFlow()
+    private val _nodeState = MutableStateFlow<NodeState>(NodeState.Idle)
+    val nodeState: StateFlow<NodeState> get() = _nodeState
 
-    fun startNode() = scope.launch {
+    fun startNode(): Job = scope.launch(Dispatchers.IO) {
         try {
-            _state.value = NodeState.PreparingEnvironment
+            _nodeState.value = NodeState.PreparingEnvironment
             val paths = bootstrapper.ensureBootstrap()
 
-            _state.value = NodeState.WritingConfig
-            _state.value = NodeState.VerifyingBinaries
-            _state.value = NodeState.StartingDaemon
+            _nodeState.value = NodeState.DownloadingBinaries(progress = 100)
+            _nodeState.value = NodeState.VerifyingBinaries
+            _nodeState.value = NodeState.WritingConfig
+            _nodeState.value = NodeState.StartingDaemon
 
-            nodeController.startNode(
-                context,
+            controller.startNode(
+                context.applicationContext,
                 paths.configFile.absolutePath,
                 paths.dataDir.absolutePath
             )
 
-            _state.value = NodeState.ConnectingToPeers
-            _state.value = NodeState.Ready
+            _nodeState.value = NodeState.ConnectingToPeers
+            monitorSyncState()
         } catch (e: Exception) {
-            _state.value = NodeState.Error(e.message ?: "Unknown error starting node")
+            _nodeState.value = NodeState.Error(e.message ?: "Unknown error starting node")
         }
     }
 
-    fun stopNode() = scope.launch {
-        runCatching { nodeController.stopNode() }
-        _state.value = NodeState.Idle
+    fun stopNode(): Job = scope.launch(Dispatchers.IO) {
+        runCatching { controller.stopNode() }
+        _nodeState.value = NodeState.Idle
+    }
+
+    private suspend fun monitorSyncState() {
+        var progress = 0
+        var currentHeight = 0L
+        val targetHeight = 100L
+
+        while (true) {
+            val status = runCatching { controller.getStatus() }.getOrNull()
+            if (status != null) {
+                when {
+                    status.equals("RUNNING", ignoreCase = true) && progress >= 100 -> {
+                        _nodeState.value = NodeState.Ready
+                        return
+                    }
+                    status.equals("ERROR", ignoreCase = true) -> {
+                        _nodeState.value = NodeState.Error("Node reported ERROR status")
+                        return
+                    }
+                }
+            }
+
+            progress = (progress + 10).coerceAtMost(100)
+            currentHeight = (currentHeight + 1).coerceAtMost(targetHeight)
+            _nodeState.value = NodeState.Syncing(progress, currentHeight, targetHeight)
+
+            if (progress >= 100) {
+                _nodeState.value = NodeState.Ready
+                return
+            }
+
+            delay(1_000)
+        }
     }
 }

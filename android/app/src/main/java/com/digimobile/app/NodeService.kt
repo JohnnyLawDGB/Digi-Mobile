@@ -82,7 +82,7 @@ class NodeService : Service() {
     private fun startStateUpdates() {
         if (stateJob != null) return
         stateJob = scope.launch {
-            nodeManager.state.collect { state ->
+            nodeManager.nodeState.collect { state ->
                 updateNotification(state.toNotificationText())
             }
         }
