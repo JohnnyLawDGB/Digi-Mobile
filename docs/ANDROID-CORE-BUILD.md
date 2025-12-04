@@ -28,7 +28,10 @@ This guide explains how Digi-Mobile builds DigiByte Core's headless daemon for A
    ./scripts/build-android.sh
    ```
    - Invokes `build-core-android.sh` to make sure the daemon is up to date.
-   - Copies the resulting binary into `android/app/src/main/assets/bin/digibyted-arm64` so Gradle can bundle it into the APK.
+   - Copies the resulting binary into `android/app/src/main/assets/bin/digibyted-arm64` so Gradle can bundle it into the APK. If
+     you skip this step but already have a freshly built daemon under `build-android/bin/arm64-v8a/` (or
+     `android/build/android-prefix/arm64-v8a/bin/`), Gradle will now copy that binary into the assets directory automatically
+     during `preBuild` so release builds still succeed.
 
 4. **Assemble the Android app**
    ```bash

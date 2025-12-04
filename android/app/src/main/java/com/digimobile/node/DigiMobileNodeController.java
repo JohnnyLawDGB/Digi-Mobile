@@ -44,6 +44,15 @@ public class DigiMobileNodeController {
         AssetManager assets = context.getAssets();
         String filesDir = context.getFilesDir().getAbsolutePath();
         nativeStartNode(assets, configPath, dataDir, filesDir);
+
+        String status = nativeGetStatus();
+        if ("BINARY_MISSING".equals(status)) {
+            throw new IllegalStateException(
+                    "Missing digibyted asset. Rebuild with scripts/build-android.sh to stage assets/bin/digibyted-arm64.");
+        }
+        if ("ERROR".equals(status)) {
+            throw new IllegalStateException("Native node startup failed with status=ERROR");
+        }
     }
 
     /**

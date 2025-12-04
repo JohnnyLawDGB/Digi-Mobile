@@ -16,7 +16,7 @@ def isReleaseBuildRequested = gradle.startParameter.taskNames
 
 def verifyDigibytedAssetEnabled = providers.gradleProperty("digibyted.verifyAsset")
         .map { it.toBoolean() }
-        .orElse(isReleaseBuildRequested)
+        .orElse(true)
 
 android {
 
@@ -99,7 +99,27 @@ tasks.register("verifyDigibytedAsset") {
 
         def binaryAsset = file("${projectDir}/src/main/assets/bin/digibyted-arm64")
         if (!binaryAsset.exists()) {
-            throw new GradleException("Missing digibyted asset at ${binaryAsset}. Run scripts/build-android.sh to build and stage the daemon before packaging, or pass -Pdigibyted.verifyAsset=false to bypass this check.")
+            def sourceCandidates = [
+                    // Output from scripts/build-core-android.sh
+                    new File(rootDir, "build-android/bin/arm64-v8a/digibyted"),
+                    // Output from the CMake build invoked by scripts/build-android.sh
+                    new File(rootDir, "android/build/android-prefix/arm64-v8a/bin/digibyted"),
+            ]
+
+            def staged = false
+            for (File candidate : sourceCandidates) {
+                if (candidate.exists()) {
+                    logger.lifecycle("Found digibyted at ${candidate}; staging into ${binaryAsset} for packaging.")
+                    binaryAsset.parentFile.mkdirs()
+                    binaryAsset.bytes = candidate.bytes
+                    staged = true
+                    break
+                }
+            }
+
+            if (!staged) {
+                throw new GradleException("Missing digibyted asset at ${binaryAsset}. Run scripts/build-android.sh to build and stage the daemon before packaging, or pass -Pdigibyted.verifyAsset=false to bypass this check.")
+            }
         }
     }
 }
