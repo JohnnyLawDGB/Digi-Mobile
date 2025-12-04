@@ -238,7 +238,7 @@ class NodeSetupActivity : AppCompatActivity() {
     private fun updateHelperText(state: NodeState) {
         val helper = when (state) {
             NodeState.Ready -> "Your phone is now running a DigiByte node. Use the core console to issue advanced commands."
-            is NodeState.Syncing, NodeState.ConnectingToPeers -> "You can leave this screen; the node continues syncing in the background."
+            is NodeState.Syncing, NodeState.ConnectingToPeers -> "Node is running; waiting for sync details (CLI not available in this build)."
             is NodeState.Error -> "Node failed to start. Return to the home screen and try again."
             else -> "We’ll download the DigiByte node binaries and sync the blockchain on this device."
         }
