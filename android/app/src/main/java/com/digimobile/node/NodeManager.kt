@@ -31,10 +31,11 @@ class NodeManager(
 
     private var lastNodePaths: NodeBootstrapper.NodePaths? = null
     private var cliAvailability: CliAvailability = CliAvailability.Unknown
-    val cliAvailable: Boolean
-        get() = evaluateCliAvailability()
+    var cliAvailable: Boolean = false
+        private set
 
     private var cliWarningLogged: Boolean = false
+    private var cliSyncErrorLogged: Boolean = false
 
     private val _logLines = MutableSharedFlow<String>(
         extraBufferCapacity = 100,
@@ -128,40 +129,16 @@ class NodeManager(
     }
 
     private suspend fun stopWithCli() {
-        val paths = lastNodePaths ?: runCatching { bootstrapper.ensureBootstrap() }.getOrNull()
-        if (paths == null) {
-            appendLog("Missing node paths for CLI stop; attempting native shutdown instead.")
-            stopWithController()
-            return
-        }
-
-        val cliBinary = File(context.filesDir, "bin/digibyte-cli")
-        if (!cliBinary.exists()) {
-            appendLog("digibyte-cli binary missing on disk; attempting native shutdown instead.")
-            stopWithController()
-            return
-        }
-
         appendLog("Stopping DigiByte daemon…")
-        val stopProcess = ProcessBuilder(
-            cliBinary.absolutePath,
-            "-conf=${paths.configFile.absolutePath}",
-            "-datadir=${paths.dataDir.absolutePath}",
-            "stop"
-        )
-            .redirectErrorStream(true)
-            .start()
-
-        val output = stopProcess.inputStream.bufferedReader().use { it.readText() }.trim()
-        val exitCode = stopProcess.waitFor()
-        if (exitCode != 0) {
-            appendLog("digibyte-cli stop failed with exit $exitCode: $output")
+        val result = runCliCommand(listOf("stop"))
+        if (result.exitCode != 0) {
+            appendLog("digibyte-cli stop failed with exit ${result.exitCode}: ${result.stderr.ifEmpty { result.stdout }}")
             stopWithController()
             return
         }
 
-        if (output.isNotEmpty()) {
-            appendLog(output)
+        if (result.stdout.isNotEmpty()) {
+            appendLog(result.stdout)
         }
 
         waitForShutdown()
@@ -204,8 +181,7 @@ class NodeManager(
             return
         }
 
-        // TODO: Replace RUNNING heuristics with digibyte-cli getnetworkinfo/getblockchaininfo
-        // calls or debug.log parsing for UpdateTip/connection lines when tooling is available.
+        cliSyncErrorLogged = false
         while (true) {
             val status = runCatching { controller.getStatus() }.getOrNull()
             if (status != null) {
@@ -223,27 +199,29 @@ class NodeManager(
                 }
             }
 
-            val cliAvailable = evaluateCliAvailability()
+            cliAvailable = evaluateCliAvailability()
             val blockchainInfo = if (cliAvailable) queryBlockchainInfo(paths) else null
-            val targetHeight = blockchainInfo?.targetHeight
+            val networkInfo = if (cliAvailable) queryNetworkInfo() else null
+            val headerHeight = blockchainInfo?.headers
             val currentHeight = blockchainInfo?.blocks
-            val progress = blockchainInfo?.progressPercent()
+            val progress = blockchainInfo?.progressFraction()
+            val peerCount = blockchainInfo?.connections ?: networkInfo?.connections
 
             val isSynced = blockchainInfo?.let { info ->
-                info.progressPercent() >= READY_THRESHOLD_PERCENT ||
-                    info.headers - info.blocks <= SYNC_TOLERANCE
+                (info.progressFraction() ?: 0.0) >= READY_THRESHOLD_FRACTION ||
+                    ((info.headers ?: 0) - (info.blocks ?: 0)) <= SYNC_TOLERANCE
             } == true
 
             val nextState = if (isSynced) {
                 NodeState.Ready
             } else {
-                NodeState.Syncing(progress?.roundToInt(), currentHeight, targetHeight)
+                NodeState.Syncing(currentHeight, headerHeight, progress, peerCount)
             }
 
             val syncLogMessage = when {
                 isSynced -> "Node is fully synced and ready"
                 !cliAvailable && blockchainInfo == null -> "Node is running; waiting for sync details (digibyte-cli not available in this build)."
-                else -> formatSyncLog(currentHeight, targetHeight, progress)
+                else -> formatSyncLog(currentHeight, headerHeight, progress, peerCount)
             }
 
             val currentState = _nodeState.value
@@ -252,7 +230,7 @@ class NodeManager(
             } else if (nextState is NodeState.Syncing && currentState is NodeState.Syncing) {
                 if (currentState.progress != nextState.progress ||
                     currentState.currentHeight != nextState.currentHeight ||
-                    currentState.targetHeight != nextState.targetHeight
+                    currentState.headerHeight != nextState.headerHeight
                 ) {
                     updateState(nextState, syncLogMessage)
                 }
@@ -262,95 +240,152 @@ class NodeManager(
         }
     }
 
-    private fun queryBlockchainInfo(paths: NodeBootstrapper.NodePaths): BlockchainInfo? {
+    private suspend fun queryBlockchainInfo(paths: NodeBootstrapper.NodePaths): BlockchainInfo? {
+        val result = runCliCommand(listOf("getblockchaininfo"))
+        if (result.exitCode != 0) {
+            handleCliError("digibyte-cli getblockchaininfo failed with exit ${result.exitCode}: ${result.stderr.ifEmpty { result.stdout }}")
+            return null
+        }
+
         return runCatching {
-            val cliBinary = File(context.filesDir, "bin/digibyte-cli")
-            if (!cliBinary.exists()) return null
-            val confArg = "-conf=${paths.configFile.absolutePath}"
-            val datadirArg = "-datadir=${paths.dataDir.absolutePath}"
-            val process = ProcessBuilder(
-                cliBinary.absolutePath,
-                confArg,
-                datadirArg,
-                "getblockchaininfo"
-            )
-                .redirectErrorStream(true)
-                .start()
-
-            val output = process.inputStream.bufferedReader().use { it.readText() }
-            val exitCode = process.waitFor()
-            if (exitCode != 0) {
-                appendLog("digibyte-cli getblockchaininfo failed with exit $exitCode")
-                return null
-            }
-
-            val json = JSONObject(output)
-            val blocks = json.optLong("blocks", 0L)
-            val headers = json.optLong("headers", blocks)
-            val verificationProgress = json.optDouble("verificationprogress", 0.0)
-            BlockchainInfo(blocks, headers, verificationProgress)
+            val json = JSONObject(result.stdout)
+            val blocks = json.optLong("blocks")
+            val headers = json.optLong("headers")
+            val verificationProgress = json.optDouble("verificationprogress")
+            val connections = json.optInt("connections", -1).takeIf { it >= 0 }
+            BlockchainInfo(blocks, headers, verificationProgress, connections)
         }.getOrElse { error ->
-            appendLog("Failed to query blockchain info: ${error.message}")
+            handleCliError("Failed to parse getblockchaininfo: ${error.message}")
             null
         }
     }
 
-    private data class BlockchainInfo(
-        val blocks: Long,
-        val headers: Long,
-        val verificationProgress: Double,
-    ) {
-        val targetHeight: Long = maxOf(blocks, headers)
+    private suspend fun queryNetworkInfo(): NetworkInfo? {
+        val result = runCliCommand(listOf("getnetworkinfo"))
+        if (result.exitCode != 0) {
+            handleCliError("digibyte-cli getnetworkinfo failed with exit ${result.exitCode}: ${result.stderr.ifEmpty { result.stdout }}")
+            return null
+        }
 
-        fun progressPercent(): Double {
-            val progressFromVerification = (verificationProgress * 100).coerceAtMost(100.0)
-            if (progressFromVerification > 0.0) {
-                return progressFromVerification
-            }
-            if (targetHeight <= 0) return 0.0
-            return ((blocks.toDouble() / targetHeight) * 100).coerceAtMost(100.0)
+        return runCatching {
+            val json = JSONObject(result.stdout)
+            val connections = json.optInt("connections", -1).takeIf { it >= 0 }
+            NetworkInfo(connections)
+        }.getOrElse { error ->
+            handleCliError("Failed to parse getnetworkinfo: ${error.message}")
+            null
         }
     }
 
-    companion object {
-        private const val SYNC_TOLERANCE = 2L
-        private const val READY_THRESHOLD_PERCENT = 99.9
-        private const val STOP_TIMEOUT_MS = 30_000L
-        private const val STOP_POLL_DELAY_MS = 1_000L
-        private const val START_STATUS_RETRY_DELAY_MS = 1_000L
-        private const val START_STATUS_MAX_ATTEMPTS = 30
+    private suspend fun runCliCommand(args: List<String>): CliResult = withContext(Dispatchers.IO) {
+        val paths = NodeEnvironment.paths ?: lastNodePaths
+        val credentials = NodeEnvironment.rpcCredentials
+        val cliBinary = bootstrapper.ensureCliBinary() ?: File(context.filesDir, "bin/digibyte-cli")
+
+        if (!cliAvailable || paths == null || credentials == null || !cliBinary.canExecute()) {
+            return@withContext CliResult(CLI_UNAVAILABLE_EXIT, "", "digibyte-cli not available")
+        }
+
+        val command = mutableListOf(
+            cliBinary.absolutePath,
+            "-datadir=${paths.dataDir.absolutePath}",
+            "-rpcuser=${credentials.user}",
+            "-rpcpassword=${credentials.password}"
+        )
+        command.addAll(args)
+
+        return@withContext runCatching {
+            val process = ProcessBuilder(command)
+                .redirectErrorStream(false)
+                .start()
+
+            val stdout = process.inputStream.bufferedReader().use { it.readText().trim() }
+            val stderr = process.errorStream.bufferedReader().use { it.readText().trim() }
+            val exitCode = process.waitFor()
+            CliResult(exitCode, stdout, stderr)
+        }.getOrElse { error ->
+            CliResult(CLI_UNAVAILABLE_EXIT, "", error.message ?: "Unknown CLI error")
+        }
+    }
+
+    private fun handleCliError(message: String) {
+        if (!cliSyncErrorLogged) {
+            appendLog(message)
+            cliSyncErrorLogged = true
+        }
+    }
+
+    private fun formatSyncLog(currentHeight: Long?, headerHeight: Long?, progress: Double?, peerCount: Int?): String {
+        val progressText = progress?.let { "${(it * 100).roundToInt()}%" } ?: "progress unknown"
+        val heightText = if (currentHeight != null && headerHeight != null) {
+            "$currentHeight / $headerHeight"
+        } else {
+            "height unknown"
+        }
+        val peersText = peerCount?.let { " with $it peers" } ?: ""
+        return "Syncing: height $heightText (~$progressText$peersText)"
     }
 
     private fun evaluateCliAvailability(): Boolean {
-        if (cliAvailability == CliAvailability.Available) return true
-        if (cliAvailability == CliAvailability.Missing) return false
+        if (cliAvailability == CliAvailability.Available) {
+            cliAvailable = true
+            return true
+        }
+        if (cliAvailability == CliAvailability.Missing) {
+            cliAvailable = false
+            return false
+        }
 
         val cliBinary = bootstrapper.ensureCliBinary()
-        val isPresent = cliBinary?.exists() == true
+        val isPresent = cliBinary?.exists() == true && cliBinary.canExecute()
         cliAvailability = if (isPresent) CliAvailability.Available else CliAvailability.Missing
+        cliAvailable = isPresent
 
         if (!isPresent && !cliWarningLogged) {
-            appendLog("digibyte-cli asset is not available in this build; CLI features will be disabled.")
+            appendLog("digibyte-cli asset missing; CLI features will be disabled.")
             cliWarningLogged = true
         }
 
         return isPresent
     }
 
-    private fun formatSyncLog(currentHeight: Long?, targetHeight: Long?, progress: Double?): String {
-        val progressText = progress?.roundToInt()?.let { "$it%" } ?: "progress unknown"
-        val heightText = if (currentHeight != null && targetHeight != null) {
-            "$currentHeight / $targetHeight"
-        } else {
-            "height unknown"
+    private data class BlockchainInfo(
+        val blocks: Long?,
+        val headers: Long?,
+        val verificationProgress: Double?,
+        val connections: Int?,
+    ) {
+        fun progressFraction(): Double? {
+            verificationProgress?.let { return it.coerceIn(0.0, 1.0) }
+            if (blocks == null || headers == null || headers <= 0) return null
+            return (blocks.toDouble() / headers).coerceIn(0.0, 1.0)
         }
-        return "Syncing: height $heightText ($progressText)"
     }
+
+    private data class NetworkInfo(
+        val connections: Int?,
+    )
+
+    private data class CliResult(
+        val exitCode: Int,
+        val stdout: String,
+        val stderr: String,
+    )
 
     private enum class CliAvailability {
         Unknown,
         Available,
         Missing
+    }
+
+    companion object {
+        private const val SYNC_TOLERANCE = 2L
+        private const val READY_THRESHOLD_FRACTION = 0.999
+        private const val STOP_TIMEOUT_MS = 30_000L
+        private const val STOP_POLL_DELAY_MS = 1_000L
+        private const val START_STATUS_RETRY_DELAY_MS = 1_000L
+        private const val START_STATUS_MAX_ATTEMPTS = 30
+        private const val CLI_UNAVAILABLE_EXIT = -1
     }
 
     fun getStatusSnapshot(): NodeStatusSnapshot {

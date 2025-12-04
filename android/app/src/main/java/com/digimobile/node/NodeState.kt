@@ -1,6 +1,7 @@
 package com.digimobile.node
 
 import android.content.Context
+import kotlin.math.roundToInt
 
 sealed class NodeState {
     data object Idle : NodeState()
@@ -11,9 +12,10 @@ sealed class NodeState {
     data object StartingDaemon : NodeState()
     data object ConnectingToPeers : NodeState()
     data class Syncing(
-        val progress: Int?,
         val currentHeight: Long?,
-        val targetHeight: Long?
+        val headerHeight: Long?,
+        val progress: Double?,
+        val peerCount: Int?
     ) : NodeState()
     data object Ready : NodeState()
     data class Error(val message: String) : NodeState()
@@ -29,19 +31,14 @@ fun NodeState.toUserMessage(context: Context): String = when (this) {
     NodeState.StartingDaemon -> "Starting DigiByte node process…"
     NodeState.ConnectingToPeers -> "Node is running; waiting for peer connections and sync details…"
     is NodeState.Syncing -> {
-        val progressText = progress?.let { "$it%" } ?: "in progress"
-        val heightText = if (currentHeight != null && targetHeight != null && targetHeight > 0) {
-            "${currentHeight} / ${targetHeight}"
-        } else {
-            null
-        }
+        val hasDetails = currentHeight != null && headerHeight != null && progress != null
+        val percent = progress?.let { (it * 100).roundToInt().coerceIn(0, 100) }
+        val peersText = peerCount?.let { " with $it peers" } ?: ""
 
-        if (heightText != null && progress != null) {
-            "Syncing blockchain: $heightText ($progressText)…"
-        } else if (heightText != null) {
-            "Syncing blockchain: $heightText…"
+        if (hasDetails && percent != null) {
+            "Syncing: height ${currentHeight} / ${headerHeight} (~${percent}%$peersText)"
         } else {
-            "Node is running; waiting for sync details…"
+            "Node is running; waiting for sync details (digibyte-cli not available in this build)."
         }
     }
     NodeState.Ready -> "Node is fully synced and ready."
