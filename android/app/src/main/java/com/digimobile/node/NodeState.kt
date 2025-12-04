@@ -26,6 +26,6 @@ fun NodeState.toUserMessage(): String = when (this) {
     NodeState.StartingDaemon -> "Starting DigiByte daemon..."
     NodeState.ConnectingToPeers -> "Connecting to peers..."
     is NodeState.Syncing -> "Syncing (${this.progress}%) height ${this.currentHeight}/${this.targetHeight}"
-    NodeState.Ready -> "Node running"
+    NodeState.Ready -> "Node is fully synced and ready"
     is NodeState.Error -> "Error: ${this.message}"
 }

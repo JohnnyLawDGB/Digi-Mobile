@@ -69,6 +69,10 @@ class NodeSetupActivity : AppCompatActivity() {
 
     private fun updateStatus(state: NodeState, previousState: NodeState) {
         binding.textMainStatus.text = state.toUserMessage()
+        if (state is NodeState.Ready && previousState !is NodeState.Ready) {
+            nodeManager.appendLog("Node is ready to accept CLI commands.")
+            Toast.makeText(this, "Node is fully synced and ready", Toast.LENGTH_SHORT).show()
+        }
         updateProgress(state)
         updateSteps(state, previousState)
         updateActionButton(state)
@@ -195,6 +199,7 @@ class NodeSetupActivity : AppCompatActivity() {
             }
             NodeState.Ready -> {
                 binding.buttonAction.text = "Open core console"
+                binding.buttonAction.isEnabled = true
                 binding.buttonAction.setOnClickListener {
                     Toast.makeText(this, "Core console coming soon", Toast.LENGTH_SHORT).show()
                 }
