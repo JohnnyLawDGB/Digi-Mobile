@@ -8,7 +8,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 CORE_DIR="$ROOT_DIR/core"
 VERSION_FILE="$ROOT_DIR/.versions/core-version.txt"
-REPO_URL="https://github.com/digibyte/digibyte.git"
+REPO_URL="https://github.com/DigiByte-Core/digibyte.git"
 
 log() { echo "[Digi-Mobile] $*"; }
 
@@ -24,6 +24,12 @@ CORE_REF=$(<"$VERSION_FILE")
 if [[ ! -d "$CORE_DIR/.git" ]]; then
   log "Initializing DigiByte Core submodule..."
   git submodule add "$REPO_URL" "$CORE_DIR"
+else
+  current_remote="$(cd "$CORE_DIR" && git remote get-url origin 2>/dev/null || true)"
+  if [[ "$current_remote" != "$REPO_URL" ]]; then
+    log "Updating DigiByte Core submodule remote from ${current_remote:-<unset>} to $REPO_URL"
+    (cd "$CORE_DIR" && git remote set-url origin "$REPO_URL")
+  fi
 fi
 
 log "Fetching DigiByte Core reference ${CORE_REF}..."
