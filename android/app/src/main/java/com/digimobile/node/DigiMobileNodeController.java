@@ -3,6 +3,7 @@ package com.digimobile.node;
 import android.content.Context;
 import android.content.res.AssetManager;
 import android.util.Log;
+import java.io.File;
 
 /**
  * Low-level controller for managing the Digi-Mobile node lifecycle from Android.
@@ -43,7 +44,9 @@ public class DigiMobileNodeController {
         ensureNativeLoaded();
         AssetManager assets = context.getAssets();
         String filesDir = context.getFilesDir().getAbsolutePath();
-        Log.i(TAG, "Starting node with datadir=" + dataDir + " conf=" + configPath);
+        String daemonPath = new File(context.getFilesDir(), "bin/digibyted").getAbsolutePath();
+        Log.i(TAG,
+                "Launching digibyted at " + daemonPath + " with datadir=" + dataDir + " and conf=" + configPath);
         nativeStartNode(assets, configPath, dataDir, filesDir);
 
         String status = nativeGetStatus();
