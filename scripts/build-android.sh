@@ -13,7 +13,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 VERSIONS_FILE="${ROOT_DIR}/.versions/android.env.sh"
 ENV_SETUP_SCRIPT="${ROOT_DIR}/android/toolchain/env-setup.sh"
-CMAKE_BUILD_DIR="${ROOT_DIR}/android/build"
+CMAKE_BUILD_ROOT="${ROOT_DIR}/android/build"
 JNI_LIBS_DIR="${ROOT_DIR}/android/app/src/main/jniLibs"
 CMAKE_GENERATOR="Ninja"
 
@@ -32,56 +32,64 @@ source "${VERSIONS_FILE}"
 # shellcheck source=/dev/null
 source "${ENV_SETUP_SCRIPT}"
 
-ANDROID_PREFIX="${CMAKE_BUILD_DIR}/android-prefix/${ANDROID_ABI}"
-BIN_DIR="${ANDROID_PREFIX}/bin"
-LIB_DIR="${ANDROID_PREFIX}/lib"
-JNI_TARGET_DIR="${JNI_LIBS_DIR}/${ANDROID_ABI}"
-JNI_SO_SOURCE="${CMAKE_BUILD_DIR}/jni-lib/${ANDROID_ABI}/libdigimobile_jni.so"
-ASSET_BIN_DIR="${ROOT_DIR}/android/app/src/main/assets/bin"
+build_digibyte_for_abi() {
+  local ABI="$1"
+  local CMAKE_BUILD_DIR="${CMAKE_BUILD_ROOT}/${ABI}"
+  local ANDROID_PREFIX="${CMAKE_BUILD_DIR}/android-prefix/${ABI}"
+  local BIN_DIR="${ANDROID_PREFIX}/bin"
+  local LIB_DIR="${ANDROID_PREFIX}/lib"
+  local JNI_TARGET_DIR="${JNI_LIBS_DIR}/${ABI}"
+  local JNI_SO_SOURCE="${CMAKE_BUILD_DIR}/jni-lib/${ABI}/libdigimobile_jni.so"
+  local ASSET_BIN_DIR="${ROOT_DIR}/android/app/src/main/assets/bin"
 
-log "Configuring DigiByte Core build via CMake (${ANDROID_ABI}, android-${ANDROID_NDK_API_LEVEL})"
-cmake -S "${ROOT_DIR}/android" -B "${CMAKE_BUILD_DIR}" \
-  -G "${CMAKE_GENERATOR}" \
-  -DANDROID_ABI="${ANDROID_ABI}" \
-  -DANDROID_PLATFORM="android-${ANDROID_NDK_API_LEVEL}" \
-  -DCMAKE_TOOLCHAIN_FILE="${ROOT_DIR}/android/toolchain-android.cmake"
+  log "Configuring DigiByte Core build via CMake (${ABI}, android-${ANDROID_NDK_API_LEVEL})"
+  cmake -S "${ROOT_DIR}/android" -B "${CMAKE_BUILD_DIR}" \
+    -G "${CMAKE_GENERATOR}" \
+    -DANDROID_ABI="${ABI}" \
+    -DANDROID_PLATFORM="android-${ANDROID_NDK_API_LEVEL}" \
+    -DCMAKE_TOOLCHAIN_FILE="${ROOT_DIR}/android/toolchain-android.cmake"
 
-log "Building digibyted for Android"
-cmake --build "${CMAKE_BUILD_DIR}" --target digibyted
+  log "Building digibyted for Android (${ABI})"
+  cmake --build "${CMAKE_BUILD_DIR}" --target digibyted
 
-log "Building JNI bridge (libdigimobile_jni.so)"
-cmake --build "${CMAKE_BUILD_DIR}" --target digimobile_jni
+  log "Building JNI bridge (libdigimobile_jni.so)"
+  cmake --build "${CMAKE_BUILD_DIR}" --target digimobile_jni
 
-[[ -d "${BIN_DIR}" ]] || die "digibyted binary missing at ${BIN_DIR}; CMake install step may have failed."
-[[ -f "${JNI_SO_SOURCE}" ]] || die "JNI shared library missing at ${JNI_SO_SOURCE}; JNI build may have failed."
+  [[ -d "${BIN_DIR}" ]] || die "digibyted binary missing at ${BIN_DIR}; CMake install step may have failed."
+  [[ -f "${JNI_SO_SOURCE}" ]] || die "JNI shared library missing at ${JNI_SO_SOURCE}; JNI build may have failed."
 
-log "Staging native artifacts into ${JNI_TARGET_DIR}"
-mkdir -p "${JNI_TARGET_DIR}"
-shopt -s nullglob
-for binary in "${BIN_DIR}"/*; do
-  cp "${binary}" "${JNI_TARGET_DIR}/"
-  log "Copied $(basename "${binary}")"
-done
-cp "${JNI_SO_SOURCE}" "${JNI_TARGET_DIR}/"
-log "Copied $(basename "${JNI_SO_SOURCE}")"
-if [[ -d "${LIB_DIR}" ]]; then
-  for so in "${LIB_DIR}"/*.so; do
-    cp "${so}" "${JNI_TARGET_DIR}/"
-    log "Copied $(basename "${so}")"
+  log "Staging native artifacts into ${JNI_TARGET_DIR}"
+  mkdir -p "${JNI_TARGET_DIR}"
+  shopt -s nullglob
+  for binary in "${BIN_DIR}"/*; do
+    cp "${binary}" "${JNI_TARGET_DIR}/"
+    log "Copied $(basename "${binary}")"
   done
-fi
-shopt -u nullglob
+  cp "${JNI_SO_SOURCE}" "${JNI_TARGET_DIR}/"
+  log "Copied $(basename "${JNI_SO_SOURCE}")"
+  if [[ -d "${LIB_DIR}" ]]; then
+    for so in "${LIB_DIR}"/*.so; do
+      cp "${so}" "${JNI_TARGET_DIR}/"
+      log "Copied $(basename "${so}")"
+    done
+  fi
+  shopt -u nullglob
 
-log "digibyted staged to ${JNI_TARGET_DIR}."
-log "Copying digibyted into APK assets at ${ASSET_BIN_DIR}"
-mkdir -p "${ASSET_BIN_DIR}"
-cp "${BIN_DIR}/digibyted" "${ASSET_BIN_DIR}/digibyted-arm64"
-log "Copied digibyted-arm64 asset"
-if [[ -f "${BIN_DIR}/digibyte-cli" ]]; then
-  cp "${BIN_DIR}/digibyte-cli" "${ASSET_BIN_DIR}/digibyte-cli-arm64"
-  log "Copied digibyte-cli-arm64 asset"
-else
-  log "digibyte-cli not built; CLI-driven features will be unavailable in the APK"
-fi
+  log "digibyted staged to ${JNI_TARGET_DIR}."
+  log "Copying digibyted into APK assets at ${ASSET_BIN_DIR}"
+  mkdir -p "${ASSET_BIN_DIR}"
+  cp "${BIN_DIR}/digibyted" "${ASSET_BIN_DIR}/digibyted-${ABI}"
+  log "Copied digibyted-${ABI} asset"
+  if [[ -f "${BIN_DIR}/digibyte-cli" ]]; then
+    cp "${BIN_DIR}/digibyte-cli" "${ASSET_BIN_DIR}/digibyte-cli-${ABI}"
+    log "Copied digibyte-cli-${ABI} asset"
+  else
+    log "digibyte-cli not built for ${ABI}; CLI-driven features will be unavailable in the APK"
+  fi
+}
+
+build_digibyte_for_abi "arm64-v8a"
+build_digibyte_for_abi "armeabi-v7a"
+
 log "Run ./gradlew assembleDebug (from android/; helper script forwards to repo wrapper) to package the APK with the bundled daemon."
 log "APK outputs: android/app/build/outputs/apk/debug/app-debug.apk and android/app/build/outputs/apk/release/app-release.apk"
