@@ -89,6 +89,7 @@ DEVICE_ABIS_RAW="${abi_detection%%|*}"
 SELECTED_ABI="${abi_detection##*|}"
 color_echo green "[Digi-Mobile] Detected device ABI(s): $DEVICE_ABIS_RAW -> using $SELECTED_ABI"
 export ABI="$SELECTED_ABI"
+export ANDROID_ABI="$SELECTED_ABI"
 color_echo yellow "[Digi-Mobile] Using ABI $SELECTED_ABI for device $DEVICE_ID"
 
 NDK_PATH=$(detect_ndk || true)
@@ -130,7 +131,7 @@ if [[ "$use_prebuilt" == false ]]; then
     exit 1
   fi
   color_echo yellow "Building DigiByte Core for Android ($SELECTED_ABI, this may take a while)..."
-  ANDROID_NDK_HOME="$NDK_PATH" ABI="$SELECTED_ABI" "$REPO_ROOT/scripts/build-android.sh"
+  ANDROID_NDK_HOME="$NDK_PATH" "$REPO_ROOT/scripts/build-android.sh"
   prebuilt="$(detect_prebuilt || true)"
 fi
 
