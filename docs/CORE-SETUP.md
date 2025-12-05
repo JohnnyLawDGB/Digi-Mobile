@@ -24,6 +24,7 @@ _Status: Experimental / Early._ Digi-Mobile vendors the official DigiByte Core r
    - Detects non-git directories at `core/`, moves them aside, and recreates a clean repo.
    - Verifies the origin remote matches `CORE_REMOTE_URL` and corrects it if different.
    - Fetches tags and checks out the pinned `CORE_REF`, failing with a clear hint if the ref cannot be resolved.
+   - It **does not** build DigiByte Core; that happens during the Android build (`./scripts/build-android.sh`), which cross-compiles `digibyted` and copies it into `android/app/src/main/assets/bin/` for Gradle to bundle.
 
 ## What could go wrong?
 - Network/firewall issues can block fetching tags from GitHub.

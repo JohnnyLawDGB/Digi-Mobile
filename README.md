@@ -37,6 +37,7 @@ Digi-Mobile packages DigiByte Core as a pruned, Android-friendly full node build
    ./scripts/setup-core.sh
    ```
    - Optional: override the upstream with `CORE_REMOTE_URL=https://github.com/DigiByte-Core/digibyte.git` (default) or pin a different ref with `CORE_REF=develop`.
+   - **Note:** this only fetches the DigiByte Core source; the daemon is compiled and staged into the APK later by the Android build step below.
 3. Re-create the Gradle wrapper JAR (kept as base64 text to avoid binary commits):
    ```bash
    ./scripts/prepare-gradle-wrapper.sh
@@ -45,6 +46,7 @@ Digi-Mobile packages DigiByte Core as a pruned, Android-friendly full node build
    ```bash
    ./scripts/build-android.sh
    ```
+   - After this completes, confirm the cross-compiled DigiByte Core daemon was staged for packaging: `ls android/app/src/main/assets/bin | grep digibyted` (should list `digibyted-arm64`).
 4. Read more details in the documentation:
    - [`docs/OVERVIEW.md`](docs/OVERVIEW.md)
    - [`docs/CORE-SETUP.md`](docs/CORE-SETUP.md)
