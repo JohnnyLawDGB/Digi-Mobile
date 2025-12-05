@@ -1,0 +1,32 @@
+From: Build Fix <build@digimobile.local>
+Date: Fri, 5 Dec 2025 00:00:00 +0000
+Subject: [PATCH] fuzz/util: Exclude Android from glibc cookie I/O guard
+
+Android's bionic libc does not provide cookie_io_functions_t or fopencookie.
+The code already has proper guards with _GNU_SOURCE and platform detection
+(__linux__ || __FreeBSD__), but this is insufficient for NDK cross-compilation
+where __ANDROID__ is defined on a Linux build system.
+
+Strengthen the preprocessor guard to explicitly exclude Android so the
+cookie_io_functions_t type and fopencookie() function are never evaluated
+during Android builds. The existing #else branch provides a safe fallback
+that returns nullptr.
+
+Issue: When cross-compiling for Android (arm64-v8a) with NDK:
+  error: unknown type name 'cookie_io_functions_t'
+
+Solution: Add !defined(__ANDROID__) to the preprocessor guard.
+
+diff --git a/src/test/fuzz/util.cpp b/src/test/fuzz/util.cpp
+index 1234567..abcdefg 100644
+--- a/src/test/fuzz/util.cpp
++++ b/src/test/fuzz/util.cpp
+@@ -231,7 +231,7 @@ FILE* FuzzedFileProvider::open()
+             mode = "a+";
+         });
+-#if defined _GNU_SOURCE && (defined(__linux__) || defined(__FreeBSD__))
++#if defined _GNU_SOURCE && (defined(__linux__) || defined(__FreeBSD__)) && !defined(__ANDROID__)
+     const cookie_io_functions_t io_hooks = {
+         FuzzedFileProvider::read,
+         FuzzedFileProvider::write,
+ 
