@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Supported Android toolchain: JDK 17, Android SDK Platform 34 with build-tools 34.x, NDK 25.1.8937393, ABI arm64-v8a, API level 29.
+# Supported Android toolchain: JDK 17, Android SDK Platform 34 with build-tools 34.x, NDK 25.1.8937393, ABIs arm64-v8a/armeabi-v7a, API level 29.
 # Update .versions/android.env.sh to change the enforced Android toolchain and CMake arguments.
 
 # Orchestrate Digi-Mobile's Android build steps, including compiling DigiByte
-# Core for Android arm64-v8a and staging the daemon binary as an asset for the
+# Core for Android arm64-v8a/armeabi-v7a and staging the daemon binary as an asset for the
 # APK. This script focuses on wiring up artifacts; it does not alter consensus
 # rules.
 set -euo pipefail
@@ -16,6 +16,7 @@ ENV_SETUP_SCRIPT="${ROOT_DIR}/android/toolchain/env-setup.sh"
 CMAKE_BUILD_ROOT="${ROOT_DIR}/android/build"
 JNI_LIBS_DIR="${ROOT_DIR}/android/app/src/main/jniLibs"
 CMAKE_GENERATOR="Ninja"
+SUPPORTED_ABIS=("arm64-v8a" "armeabi-v7a")
 
 log() {
   echo "[build-android] $*"
@@ -88,8 +89,25 @@ build_digibyte_for_abi() {
   fi
 }
 
-build_digibyte_for_abi "arm64-v8a"
-build_digibyte_for_abi "armeabi-v7a"
+abis_to_build=()
+if [[ -n "${ABI:-}" ]]; then
+  for supported in "${SUPPORTED_ABIS[@]}"; do
+    if [[ "$supported" == "$ABI" ]]; then
+      abis_to_build=("$ABI")
+      break
+    fi
+  done
+  if [[ ${#abis_to_build[@]} -eq 0 ]]; then
+    die "Unsupported ABI '$ABI'. Supported: ${SUPPORTED_ABIS[*]}"
+  fi
+  log "Building requested ABI: ${abis_to_build[*]}"
+else
+  abis_to_build=("${SUPPORTED_ABIS[@]}")
+fi
+
+for abi in "${abis_to_build[@]}"; do
+  build_digibyte_for_abi "$abi"
+done
 
 log "Run ./gradlew assembleDebug (from android/; helper script forwards to repo wrapper) to package the APK with the bundled daemon."
 log "APK outputs: android/app/build/outputs/apk/debug/app-debug.apk and android/app/build/outputs/apk/release/app-release.apk"
