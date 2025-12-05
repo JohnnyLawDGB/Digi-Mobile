@@ -43,6 +43,29 @@ build_digibyte_for_abi() {
   local JNI_SO_SOURCE="${CMAKE_BUILD_DIR}/jni-lib/${ABI}/libdigimobile_jni.so"
   local ASSET_BIN_DIR="${ROOT_DIR}/android/app/src/main/assets/bin"
 
+  : "${ANDROID_NDK_ROOT:=${ANDROID_NDK_HOME}}"
+  TOOLCHAIN_BIN="${ANDROID_NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64/bin"
+  ANDROID_API_LEVEL="${ANDROID_NDK_API_LEVEL}"
+
+  case "${ABI}" in
+    arm64-v8a)
+      ANDROID_TRIPLE="aarch64-linux-android"
+      ;;
+    armeabi-v7a)
+      ANDROID_TRIPLE="armv7a-linux-androideabi"
+      ;;
+    *)
+      echo "[env-setup] ERROR: Unsupported ANDROID_ABI '${ABI}'" >&2
+      exit 1
+      ;;
+  esac
+
+  export CC="${TOOLCHAIN_BIN}/${ANDROID_TRIPLE}${ANDROID_API_LEVEL}-clang"
+  export CXX="${TOOLCHAIN_BIN}/${ANDROID_TRIPLE}${ANDROID_API_LEVEL}-clang++"
+  export AR="${TOOLCHAIN_BIN}/llvm-ar"
+  export RANLIB="${TOOLCHAIN_BIN}/llvm-ranlib"
+  export LD="${TOOLCHAIN_BIN}/ld.lld"
+
   log "Configuring DigiByte Core build via CMake (${ABI}, android-${ANDROID_NDK_API_LEVEL})"
   cmake -S "${ROOT_DIR}/android" -B "${CMAKE_BUILD_DIR}" \
     -G "${CMAKE_GENERATOR}" \
