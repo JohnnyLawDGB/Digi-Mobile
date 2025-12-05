@@ -60,12 +60,37 @@ endif()
 
 set(DGB_EXTRA_CONFIGURE_ARGS "" CACHE STRING "Additional configure flags passed to DigiByte Core")
 
+set(DGB_CC "$ENV{CC}")
+if(DGB_CC STREQUAL "")
+  set(DGB_CC "${CMAKE_C_COMPILER}")
+endif()
+
+set(DGB_CXX "$ENV{CXX}")
+if(DGB_CXX STREQUAL "")
+  set(DGB_CXX "${CMAKE_CXX_COMPILER}")
+endif()
+
+set(DGB_AR "$ENV{AR}")
+if(DGB_AR STREQUAL "")
+  set(DGB_AR "${CMAKE_AR}")
+endif()
+
+set(DGB_RANLIB "$ENV{RANLIB}")
+if(DGB_RANLIB STREQUAL "")
+  set(DGB_RANLIB "${CMAKE_RANLIB}")
+endif()
+
+set(DGB_LD "$ENV{LD}")
+if(DGB_LD STREQUAL "")
+  set(DGB_LD "${CMAKE_LINKER}")
+endif()
+
 set(DGB_CONFIGURE_ENV
-  "CC=${CMAKE_C_COMPILER}"
-  "CXX=${CMAKE_CXX_COMPILER}"
-  "AR=${CMAKE_AR}"
-  "RANLIB=${CMAKE_RANLIB}"
-  "LD=${CMAKE_LINKER}"
+  "CC=${DGB_CC}"
+  "CXX=${DGB_CXX}"
+  "AR=${DGB_AR}"
+  "RANLIB=${DGB_RANLIB}"
+  "LD=${DGB_LD}"
   "PKG_CONFIG_LIBDIR="
   "PKG_CONFIG_PATH="
   "CFLAGS=${CMAKE_C_FLAGS} ${DGB_COMMON_CFLAGS}"
