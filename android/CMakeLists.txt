@@ -113,9 +113,11 @@ set(DGB_CONFIGURE_ARGS
   "--disable-bench"
   "--disable-man"
   "--disable-tests"
+  "--disable-fuzz"
   "--disable-gui-tests"
   "--without-gui"
   "--with-miniupnpc=no"
+  "--with-fuzz-binary=no"
   "${DGB_ZMQ_ARG}"
   "--enable-reduce-exports"
   ${DGB_EXTRA_CONFIGURE_ARGS}
