@@ -73,6 +73,12 @@ class NodeManager(
         if (!canStart) return@launch
 
         try {
+            val binariesReady = bootstrapper.downloadOrUpdateBinaries { appendLog(it) }
+            if (!binariesReady) {
+                _nodeState.value = NodeState.Error("Failed to prepare DigiByte binaries")
+                return@launch
+            }
+
             val paths = bootstrapper.ensureBootstrap()
             lastNodePaths = paths
             evaluateCliAvailability()
