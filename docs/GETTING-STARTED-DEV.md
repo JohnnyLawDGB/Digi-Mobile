@@ -140,6 +140,19 @@ Or use the helper script:
 - Check internet connection and GitHub access
 - If behind a proxy, configure git: `git config --global http.proxy [proxy-url]`
 
+### Linker errors: "incompatible with aarch64linux"
+- **Cause:** Stale build cache or object files from previous build with different NDK/toolchain
+- **Fix:** Clean and rebuild from scratch:
+  ```bash
+  ./scripts/clean-build.sh
+  ./scripts/build-android.sh
+  ```
+- If that doesn't work, also clean the core dependencies:
+  ```bash
+  rm -rf core/depends/work core/build-android-arm64
+  ./scripts/build-android.sh
+  ```
+
 ## Next Steps
 
 - **Configuration**: Read [`docs/CONFIGURATION.md`](CONFIGURATION.md) to tune pruning and memory settings before deployment
