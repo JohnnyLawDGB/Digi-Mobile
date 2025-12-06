@@ -21,22 +21,16 @@ jobs:
           java-version: '17'
 
       - name: Set up Android SDK
-        uses: r0adkll/setup-android@v2
-        with:
-          api-level: 29
-          build-tools: 34.0.0
-          ndk: 25.1.8937393
-          cmake: true
-          components: |
-            platform-tools
-            platforms;android-29
-            platforms;android-34
-            build-tools;34.0.0
+        uses: android-actions/setup-android@v3
 
-      - name: Install build tools
+      - name: Set up CMake and Ninja
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq ninja-build curl pkg-config
+          sudo apt-get install -y -qq cmake ninja-build
+
+      - name: Install additional build tools
+        run: |
+          sudo apt-get install -y -qq curl pkg-config autoconf
 
       - name: Set up DigiByte Core
         run: ./scripts/setup-core.sh
