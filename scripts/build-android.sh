@@ -168,7 +168,9 @@ if [[ -n "${ABI:-}" ]]; then
   fi
   log "Building requested ABI: ${abis_to_build[*]}"
 else
-  abis_to_build=("${SUPPORTED_ABIS[@]}")
+  # Default: build only arm64-v8a (sufficient for APK and avoids NDK compatibility issues with older ABIs)
+  abis_to_build=("arm64-v8a")
+  log "Building default ABI: ${abis_to_build[*]} (set ABI environment variable to build others)"
 fi
 
 for abi in "${abis_to_build[@]}"; do
