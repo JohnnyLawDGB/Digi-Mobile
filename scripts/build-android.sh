@@ -67,10 +67,23 @@ build_digibyte_for_abi() {
   export LD="${TOOLCHAIN_BIN}/ld.lld"
 
   log "Configuring DigiByte Core build via CMake (${ABI}, android-${ANDROID_NDK_API_LEVEL})"
+  log "Using NDK: ${ANDROID_NDK_ROOT}"
+  log "Compiler CC: $CC"
+  log "Compiler CXX: $CXX"
+  [[ -d "${ANDROID_NDK_ROOT}" ]] || die "NDK path does not exist: ${ANDROID_NDK_ROOT}"
+  [[ -f "${ANDROID_NDK_ROOT}/build/cmake/android.toolchain.cmake" ]] || die "NDK toolchain not found at ${ANDROID_NDK_ROOT}/build/cmake/android.toolchain.cmake"
+  [[ -x "$CC" ]] || die "Compiler not found or not executable: $CC"
+  
+  # Force CMake to reconfigure (delete cache to avoid stale host compiler detection)
+  rm -rf "${CMAKE_BUILD_DIR}/CMakeCache.txt" "${CMAKE_BUILD_DIR}/CMakeFiles" 2>/dev/null || true
+  
+  # Pass NDK both via env var and CMake flag to ensure toolchain file can find it
+  export ANDROID_NDK_HOME="${ANDROID_NDK_ROOT}"
   cmake -S "${ROOT_DIR}/android" -B "${CMAKE_BUILD_DIR}" \
     -G "${CMAKE_GENERATOR}" \
     -DANDROID_ABI="${ABI}" \
     -DANDROID_PLATFORM="android-${ANDROID_NDK_API_LEVEL}" \
+    -DANDROID_NDK="${ANDROID_NDK_ROOT}" \
     -DCMAKE_TOOLCHAIN_FILE="${ROOT_DIR}/android/toolchain-android.cmake"
 
   log "Building digibyted for Android (${ABI})"
