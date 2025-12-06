@@ -17,7 +17,6 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.json.JSONObject
-import kotlin.math.roundToInt
 
 class NodeManager(
     private val context: Context,
@@ -33,6 +32,8 @@ class NodeManager(
     private var cliAvailability: CliAvailability = CliAvailability.Unknown
     var cliAvailable: Boolean = false
         private set
+
+    private var lastSyncProgress: SyncProgress = SyncProgress(fraction = 0f, isInitialDownload = true)
 
     private var cliWarningLogged: Boolean = false
     private var cliSyncErrorLogged: Boolean = false
@@ -182,6 +183,7 @@ class NodeManager(
         }
 
         cliSyncErrorLogged = false
+        var warmupAttempts = 0
         while (true) {
             val status = runCatching { controller.getStatus() }.getOrNull()
             if (status != null) {
@@ -200,28 +202,63 @@ class NodeManager(
             }
 
             cliAvailable = evaluateCliAvailability()
-            val blockchainInfo = if (cliAvailable) queryBlockchainInfo(paths) else null
+            if (!cliAvailable) {
+                warmupAttempts = 0
+                val message = "Node is running; waiting for sync details (digibyte-cli not available in this build)."
+                updateState(NodeState.StartingUp(message), message)
+                delay(WARMUP_RETRY_DELAY_MS)
+                continue
+            }
+
+            val blockchainResult = queryBlockchainInfo(paths)
+
+            val blockchainInfo = when (blockchainResult) {
+                is QueryOutcome.Success -> blockchainResult.value
+                is QueryOutcome.Warmup -> {
+                    warmupAttempts++
+                    val message = blockchainResult.message
+                    updateState(NodeState.StartingUp(message), message)
+                    if (warmupAttempts >= START_WARMUP_MAX_ATTEMPTS) {
+                        val failureMessage =
+                            "DigiByte RPC still starting after ${
+                                (warmupAttempts * WARMUP_RETRY_DELAY_MS) / 1000
+                            } seconds"
+                        updateState(NodeState.Error(failureMessage), failureMessage)
+                        return
+                    }
+                    delay(WARMUP_RETRY_DELAY_MS)
+                    continue
+                }
+                is QueryOutcome.Failure -> {
+                    updateState(NodeState.Error(blockchainResult.message), blockchainResult.message)
+                    return
+                }
+            }
+            warmupAttempts = 0
+
             val networkInfo = if (cliAvailable) queryNetworkInfo() else null
             val headerHeight = blockchainInfo?.headers
             val currentHeight = blockchainInfo?.blocks
-            val progress = blockchainInfo?.progressFraction()
+            val syncProgress = blockchainInfo?.syncProgress(lastSyncProgress) ?: lastSyncProgress
+            lastSyncProgress = syncProgress
             val peerCount = blockchainInfo?.connections ?: networkInfo?.connections
 
             val isSynced = blockchainInfo?.let { info ->
-                (info.progressFraction() ?: 0.0) >= READY_THRESHOLD_FRACTION ||
-                    ((info.headers ?: 0) - (info.blocks ?: 0)) <= SYNC_TOLERANCE
+                syncProgress.fraction.toDouble() >= READY_THRESHOLD_FRACTION ||
+                    ((info.headers ?: 0) - (info.blocks ?: 0)) <= SYNC_TOLERANCE ||
+                    info.isInitialBlockDownload == false
             } == true
 
             val nextState = if (isSynced) {
                 NodeState.Ready
             } else {
-                NodeState.Syncing(currentHeight, headerHeight, progress, peerCount)
+                NodeState.Syncing(currentHeight, headerHeight, syncProgress, peerCount)
             }
 
             val syncLogMessage = when {
                 isSynced -> "Node is fully synced and ready"
                 !cliAvailable && blockchainInfo == null -> "Node is running; waiting for sync details (digibyte-cli not available in this build)."
-                else -> formatSyncLog(currentHeight, headerHeight, progress, peerCount)
+                else -> formatSyncLog(currentHeight, headerHeight, syncProgress, peerCount)
             }
 
             val currentState = _nodeState.value
@@ -240,11 +277,15 @@ class NodeManager(
         }
     }
 
-    private suspend fun queryBlockchainInfo(paths: NodeBootstrapper.NodePaths): BlockchainInfo? {
+    private suspend fun queryBlockchainInfo(paths: NodeBootstrapper.NodePaths): QueryOutcome<BlockchainInfo> {
         val result = runCliCommand(listOf("getblockchaininfo"))
         if (result.exitCode != 0) {
+            val warmupMessage = result.toWarmupMessage()
+            if (warmupMessage != null) {
+                return QueryOutcome.Warmup(warmupMessage)
+            }
             handleCliError("digibyte-cli getblockchaininfo failed with exit ${result.exitCode}: ${result.stderr.ifEmpty { result.stdout }}")
-            return null
+            return QueryOutcome.Failure("digibyte-cli getblockchaininfo failed")
         }
 
         return runCatching {
@@ -252,18 +293,24 @@ class NodeManager(
             val blocks = json.optLong("blocks")
             val headers = json.optLong("headers")
             val verificationProgress = json.optDouble("verificationprogress")
+            val initialBlockDownload = json.optBoolean("initialblockdownload")
             val connections = json.optInt("connections", -1).takeIf { it >= 0 }
-            BlockchainInfo(blocks, headers, verificationProgress, connections)
+            QueryOutcome.Success(
+                BlockchainInfo(blocks, headers, verificationProgress, initialBlockDownload, connections)
+            )
         }.getOrElse { error ->
             handleCliError("Failed to parse getblockchaininfo: ${error.message}")
-            null
+            QueryOutcome.Failure("Failed to parse getblockchaininfo")
         }
     }
 
     private suspend fun queryNetworkInfo(): NetworkInfo? {
         val result = runCliCommand(listOf("getnetworkinfo"))
         if (result.exitCode != 0) {
-            handleCliError("digibyte-cli getnetworkinfo failed with exit ${result.exitCode}: ${result.stderr.ifEmpty { result.stdout }}")
+            val warmupMessage = result.toWarmupMessage()
+            if (warmupMessage == null) {
+                handleCliError("digibyte-cli getnetworkinfo failed with exit ${result.exitCode}: ${result.stderr.ifEmpty { result.stdout }}")
+            }
             return null
         }
 
@@ -310,6 +357,37 @@ class NodeManager(
         }
     }
 
+    private fun CliResult.toWarmupMessage(): String? {
+        val text = (stderr.ifEmpty { stdout }).lowercase()
+        if (exitCode == CLI_UNAVAILABLE_EXIT) return "Node starting… waiting for RPC access"
+
+        val warmupSignals = listOf(
+            "rpc in warmup",
+            "rpc in warm up",
+            "loading block index",
+            "verifying blocks",
+            "still warming up",
+            "loading wallet",
+            "loading wallets",
+            "rescanning",
+            "verifying wallet",
+        )
+        if (warmupSignals.any { text.contains(it) }) {
+            return "Node starting… this can take a few minutes"
+        }
+
+        val connectionSignals = listOf(
+            "couldn't connect to server",
+            "connection refused",
+            "connection reset",
+            "connect error",
+            "could not connect",
+        )
+        return connectionSignals.firstOrNull { text.contains(it) }?.let {
+            "Node starting… waiting for RPC access"
+        }
+    }
+
     private fun handleCliError(message: String) {
         if (!cliSyncErrorLogged) {
             appendLog(message)
@@ -317,8 +395,13 @@ class NodeManager(
         }
     }
 
-    private fun formatSyncLog(currentHeight: Long?, headerHeight: Long?, progress: Double?, peerCount: Int?): String {
-        val progressText = progress?.let { "${(it * 100).roundToInt()}%" } ?: "progress unknown"
+    private fun formatSyncLog(
+        currentHeight: Long?,
+        headerHeight: Long?,
+        progress: SyncProgress?,
+        peerCount: Int?
+    ): String {
+        val progressText = progress?.let { "${it.toProgressInt()}%" } ?: "progress unknown"
         val heightText = if (currentHeight != null && headerHeight != null) {
             "$currentHeight / $headerHeight"
         } else {
@@ -355,12 +438,18 @@ class NodeManager(
         val blocks: Long?,
         val headers: Long?,
         val verificationProgress: Double?,
+        val isInitialBlockDownload: Boolean?,
         val connections: Int?,
     ) {
-        fun progressFraction(): Double? {
-            verificationProgress?.let { return it.coerceIn(0.0, 1.0) }
-            if (blocks == null || headers == null || headers <= 0) return null
-            return (blocks.toDouble() / headers).coerceIn(0.0, 1.0)
+        fun syncProgress(previous: SyncProgress?): SyncProgress {
+            val previousProgress = previous ?: SyncProgress(0f, isInitialDownload = true)
+
+            if (isInitialBlockDownload == false) {
+                return SyncProgress(1f, isInitialDownload = false)
+            }
+            verificationProgress?.let { return SyncProgress(it.coerceIn(0.0, 1.0).toFloat(), isInitialDownload = true) }
+
+            return previousProgress
         }
     }
 
@@ -373,6 +462,12 @@ class NodeManager(
         val stdout: String,
         val stderr: String,
     )
+
+    private sealed class QueryOutcome<out T> {
+        data class Success<T>(val value: T) : QueryOutcome<T>()
+        data class Warmup(val message: String) : QueryOutcome<Nothing>()
+        data class Failure(val message: String) : QueryOutcome<Nothing>()
+    }
 
     private enum class CliAvailability {
         Unknown,
@@ -387,6 +482,8 @@ class NodeManager(
         private const val STOP_POLL_DELAY_MS = 1_000L
         private const val START_STATUS_RETRY_DELAY_MS = 1_000L
         private const val START_STATUS_MAX_ATTEMPTS = 30
+        private const val WARMUP_RETRY_DELAY_MS = 5_000L
+        private const val START_WARMUP_MAX_ATTEMPTS = 12
         private const val CLI_UNAVAILABLE_EXIT = -1
     }
 
@@ -394,12 +491,12 @@ class NodeManager(
         val paths = lastNodePaths ?: runCatching { bootstrapper.ensureBootstrap() }.getOrNull()
         val dataDir = paths?.dataDir ?: File(context.filesDir, "digibyte")
         val configFile = paths?.configFile ?: File(dataDir, "digibyte.conf")
-        val debugLogFile = NodeDiagnostics.getDebugLogFile(dataDir)
+        val debugLogInsight = NodeDiagnostics.debugLogConfig(dataDir)
 
         return NodeStatusSnapshot(
             datadir = dataDir,
             confExists = configFile.exists(),
-            debugLogExists = debugLogFile.exists()
+            debugLogInsight = debugLogInsight
         )
     }
 
@@ -439,5 +536,5 @@ class NodeManager(
 data class NodeStatusSnapshot(
     val datadir: File,
     val confExists: Boolean,
-    val debugLogExists: Boolean,
+    val debugLogInsight: DebugLogInsight,
 )

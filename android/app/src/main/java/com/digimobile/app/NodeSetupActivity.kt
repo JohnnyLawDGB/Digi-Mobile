@@ -11,17 +11,18 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.digimobile.app.databinding.ActivityNodeSetupBinding
+import com.digimobile.node.DebugLogStatus
+import com.digimobile.node.NodeDiagnostics
 import com.digimobile.node.NodeManager
 import com.digimobile.node.NodeManagerProvider
-import com.digimobile.node.NodeDiagnostics
 import com.digimobile.node.NodeStatusSnapshot
 import com.digimobile.node.NodeState
+import com.digimobile.node.SyncProgress
 import com.digimobile.node.toUserMessage
 import java.util.ArrayDeque
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlin.math.roundToInt
 
 class NodeSetupActivity : AppCompatActivity() {
 
@@ -112,7 +113,7 @@ class NodeSetupActivity : AppCompatActivity() {
         diagnosticsLogged = true
         lifecycleScope.launch {
             val snapshot = withContext(Dispatchers.IO) { nodeManager.getStatusSnapshot() }
-            val debugLogFile = NodeDiagnostics.getDebugLogFile(snapshot.datadir)
+            val debugLogFile = snapshot.debugLogInsight.file
             val tail = withContext(Dispatchers.IO) {
                 NodeDiagnostics.tailDebugLog(snapshot.datadir, maxLines = 50)
             }
@@ -122,12 +123,20 @@ class NodeSetupActivity : AppCompatActivity() {
             val message: String
             val linesToAppend: List<String>
 
-            if (snapshot.debugLogExists) {
-                message = "Debug log found at ${debugLogFile.absolutePath}; use tail view below for recent lines"
-                linesToAppend = tail
-            } else {
-                message = "No debug.log yet; node may still be initializing."
-                linesToAppend = emptyList()
+            when (snapshot.debugLogInsight.status) {
+                DebugLogStatus.Disabled -> {
+                    message = "Debug log disabled by configuration (pruned profile)."
+                    linesToAppend = emptyList()
+                }
+                DebugLogStatus.Present -> {
+                    val logPath = debugLogFile?.absolutePath ?: "debug.log"
+                    message = "Debug log found at $logPath; use tail view below for recent lines"
+                    linesToAppend = tail
+                }
+                DebugLogStatus.Missing -> {
+                    message = "No debug.log yet; node may still be initializing."
+                    linesToAppend = emptyList()
+                }
             }
 
             withContext(Dispatchers.Main) {
@@ -138,7 +147,10 @@ class NodeSetupActivity : AppCompatActivity() {
     }
 
     private fun isRunningState(state: NodeState): Boolean {
-        return state is NodeState.ConnectingToPeers || state is NodeState.Syncing || state is NodeState.Ready
+        return state is NodeState.ConnectingToPeers ||
+            state is NodeState.StartingUp ||
+            state is NodeState.Syncing ||
+            state is NodeState.Ready
     }
 
     private fun appendLogLine(line: String) {
@@ -171,24 +183,40 @@ class NodeSetupActivity : AppCompatActivity() {
         binding.textDeveloperDatadir.text = "Datadir: ${snapshot.datadir.absolutePath}"
         binding.textDeveloperConf.text =
             "digibyte.conf: ${if (snapshot.confExists) "exists" else "absent"}"
-        binding.textDeveloperDebugLog.text =
-            "debug.log: ${if (snapshot.debugLogExists) "exists" else "absent"}"
+        val debugLogLabel = when (snapshot.debugLogInsight.status) {
+            DebugLogStatus.Disabled -> "disabled (pruned config)"
+            DebugLogStatus.Present -> "exists"
+            DebugLogStatus.Missing -> "absent"
+        }
+        binding.textDeveloperDebugLog.text = "debug.log: $debugLogLabel"
     }
 
     private fun updateProgress(state: NodeState) {
         when (state) {
-            is NodeState.DownloadingBinaries -> showProgress(state.progress / 100.0)
-            is NodeState.Syncing -> showProgress(state.progress)
+            is NodeState.DownloadingBinaries -> showDownloadProgress(state.progress / 100.0)
+            is NodeState.StartingUp -> showIndeterminateProgress()
+            is NodeState.Syncing -> showSyncProgress(state.progress)
             else -> hideProgress()
         }
     }
 
-    private fun showProgress(progress: Double?) {
+    private fun showDownloadProgress(progress: Double?) {
         binding.progressBar.isVisible = true
         binding.progressBar.isIndeterminate = progress == null
         if (progress != null) {
-            binding.progressBar.progress = (progress * 100).roundToInt().coerceIn(0, 100)
+            binding.progressBar.progress = (progress * binding.progressBar.max).toInt().coerceIn(0, binding.progressBar.max)
         }
+    }
+
+    private fun showSyncProgress(progress: SyncProgress) {
+        binding.progressBar.isVisible = true
+        binding.progressBar.isIndeterminate = false
+        binding.progressBar.progress = progress.toProgressInt(binding.progressBar.max)
+    }
+
+    private fun showIndeterminateProgress() {
+        binding.progressBar.isVisible = true
+        binding.progressBar.isIndeterminate = true
     }
 
     private fun hideProgress() {
@@ -251,6 +279,13 @@ class NodeSetupActivity : AppCompatActivity() {
                 statuses[SetupStep.WriteConfig] = StepStatus.Done
                 statuses[SetupStep.StartNode] = StepStatus.InProgress
             }
+            is NodeState.StartingUp -> {
+                statuses[SetupStep.PrepareEnvironment] = StepStatus.Done
+                statuses[SetupStep.DownloadBinaries] = StepStatus.Done
+                statuses[SetupStep.VerifyBinaries] = StepStatus.Done
+                statuses[SetupStep.WriteConfig] = StepStatus.Done
+                statuses[SetupStep.StartNode] = StepStatus.InProgress
+            }
             NodeState.ConnectingToPeers -> {
                 statuses[SetupStep.PrepareEnvironment] = StepStatus.Done
                 statuses[SetupStep.DownloadBinaries] = StepStatus.Done
@@ -282,6 +317,7 @@ class NodeSetupActivity : AppCompatActivity() {
             NodeState.VerifyingBinaries,
             NodeState.WritingConfig,
             NodeState.StartingDaemon,
+            is NodeState.StartingUp,
             NodeState.ConnectingToPeers,
             is NodeState.Syncing,
             NodeState.Ready -> {
@@ -309,16 +345,22 @@ class NodeSetupActivity : AppCompatActivity() {
             NodeState.Ready -> "Your phone is now running a DigiByte node. Use the core console to issue advanced commands."
             is NodeState.Syncing -> {
                 val hasDetails =
-                    state.currentHeight != null && state.headerHeight != null && state.progress != null
+                    state.currentHeight != null && state.headerHeight != null
                 val peersText = state.peerCount?.let { " with $it peers" } ?: ""
-                val percent = state.progress?.let { (it * 100).roundToInt().coerceIn(0, 100) }
-
-                if (hasDetails && percent != null) {
-                    "Syncing: height ${state.currentHeight} / ${state.headerHeight} (~${percent}%$peersText)"
+                val percent = state.progress.toProgressInt()
+                val statusPrefix = if (state.progress.fraction >= 0.999f) {
+                    "Synced"
                 } else {
-                    "Node is running; waiting for sync details (digibyte-cli not available in this build)."
+                    "Syncing blockchain…"
+                }
+
+                if (hasDetails) {
+                    "$statusPrefix height ${state.currentHeight} / ${state.headerHeight} (~${percent}%$peersText)"
+                } else {
+                    "$statusPrefix waiting for peer heights…"
                 }
             }
+            is NodeState.StartingUp -> state.reason
             NodeState.ConnectingToPeers -> "Node is running; waiting for peer connections and sync details…"
             is NodeState.Error -> "Node failed to start. Return to the home screen and try again."
             else -> "We’ll download the DigiByte node binaries and sync the blockchain on this device."

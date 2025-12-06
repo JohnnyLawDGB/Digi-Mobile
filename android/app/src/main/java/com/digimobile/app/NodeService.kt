@@ -23,7 +23,6 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
-import kotlin.math.roundToInt
 
 class NodeService : Service() {
 
@@ -132,9 +131,10 @@ class NodeService : Service() {
         NodeState.VerifyingBinaries -> "Verifying Digi-Mobile binaries..."
         NodeState.WritingConfig -> "Writing node configuration..."
         NodeState.StartingDaemon -> "Starting DigiByte daemon..."
+        is NodeState.StartingUp -> state.reason
         NodeState.ConnectingToPeers -> "Connecting to DigiByte peers..."
         is NodeState.Syncing -> {
-            val progressText = this.progress?.let { "${(it * 100).roundToInt()}%" } ?: "progress unknown"
+            val progressText = "${this.progress.toProgressInt()}%"
             val heightText = if (this.currentHeight != null && this.headerHeight != null) {
                 " height ${this.currentHeight}/${this.headerHeight}"
             } else {
