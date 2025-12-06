@@ -76,6 +76,11 @@ build_digibyte_for_abi() {
   
   # Force CMake to reconfigure (delete cache to avoid stale host compiler detection)
   rm -rf "${CMAKE_BUILD_DIR}/CMakeCache.txt" "${CMAKE_BUILD_DIR}/CMakeFiles" 2>/dev/null || true
+
+  # Remove any stale DigiByte Core in-source build or android-prefix directories
+  # from previous host (x86) builds so they cannot pollute this cross-compile.
+  rm -rf "${CMAKE_BUILD_DIR}/core-build-${ABI}" || true
+  rm -rf "${CMAKE_BUILD_DIR}/android-prefix/${ABI}" || true
   
   # Pass NDK both via env var and CMake flag to ensure toolchain file can find it
   export ANDROID_NDK_HOME="${ANDROID_NDK_ROOT}"
