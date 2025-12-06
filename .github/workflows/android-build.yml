@@ -44,12 +44,25 @@ jobs:
         with:
           api-level: 29
           build-tools: 29.0.3
+          ndk: 25.1.8937393
+          cmake: true
           components: |
             platform-tools
             platforms;android-29
             build-tools;29.0.3
 
-      - name: Build (assemble debug)
+      - name: Install build tools
+        run: |
+          apt-get update -qq
+          apt-get install -y -qq ninja-build curl pkg-config
+
+      - name: Set up DigiByte Core
+        run: ./scripts/setup-core.sh
+
+      - name: Build DigiByte daemon for Android
+        run: ./scripts/build-android.sh
+
+      - name: Build APK (assemble debug)
         run: ./gradlew assembleDebug --no-daemon
 
       - name: List built APKs
