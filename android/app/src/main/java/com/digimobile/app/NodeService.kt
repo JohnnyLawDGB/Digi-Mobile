@@ -131,7 +131,7 @@ class NodeService : Service() {
         NodeState.VerifyingBinaries -> "Verifying Digi-Mobile binaries..."
         NodeState.WritingConfig -> "Writing node configuration..."
         NodeState.StartingDaemon -> "Starting DigiByte daemon..."
-        is NodeState.StartingUp -> state.reason
+        is NodeState.StartingUp -> this.reason
         NodeState.ConnectingToPeers -> "Connecting to DigiByte peers..."
         is NodeState.Syncing -> {
             val progressText = "${this.progress.toProgressInt()}%"
