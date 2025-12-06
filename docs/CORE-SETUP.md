@@ -37,5 +37,7 @@ _Status: Experimental / Early._ Digi-Mobile vendors the official DigiByte Core r
 - If fetches fail, retry with a different network or ensure the remote contains the requested ref.
 
 ## Related docs
-- [`OVERVIEW`](OVERVIEW.md) for project context.
-- [`CONFIGURATION`](CONFIGURATION.md) for picking Android-friendly runtime settings.
+- **Getting started:** [`GETTING-STARTED-DEV.md`](GETTING-STARTED-DEV.md)
+- **Advanced build:** [`ADVANCED-ANDROID-BUILD.md`](ADVANCED-ANDROID-BUILD.md)
+- **Configuration:** [`CONFIGURATION.md`](CONFIGURATION.md)
+- **Documentation index:** [`README.md`](README.md)

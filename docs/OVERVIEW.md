@@ -12,17 +12,15 @@ _Status: Experimental / Early._ Digi-Mobile is a truncated/pruned DigiByte node 
 - adb from Android platform-tools for device workflows.
 
 ## Docs Index
-- [`GETTING-STARTED-NONTECH.md`](./GETTING-STARTED-NONTECH.md): Plain-English guide for non-technical helpers and users.
-- [`MOBILE-INSTALL.md`](./MOBILE-INSTALL.md): Install Digi-Mobile directly on Android via APK.
-- [`CORE-SETUP.md`](./CORE-SETUP.md): Initialize the DigiByte Core source tree and prerequisites.
-- [`ANDROID-CORE-BUILD.md`](./ANDROID-CORE-BUILD.md): Build and package the DigiByte daemon for Android.
-- [`CONFIGURATION.md`](./CONFIGURATION.md): Runtime settings tuned for pruned mobile nodes.
-- [`ANDROID-BUILD.md`](./ANDROID-BUILD.md): Android build flow and architecture notes.
-- [`android/README-ANDROID-BUILD.md`](../android/README-ANDROID-BUILD.md): Android-side toolchain specifics and Gradle/NDK tips.
-- [`ANDROID-INSTALL.md`](./ANDROID-INSTALL.md): Steps to push binaries and run on devices or Termux.
-- [`PRUNING.md`](./PRUNING.md): Details on pruned node behavior and storage targets.
-- [`RUNNING-ON-DEVICE.md`](./RUNNING-ON-DEVICE.md): adb-based push/run/stop helpers.
-- [`JNI-BRIDGE.md`](./JNI-BRIDGE.md): Notes on the experimental JNI layer.
+
+See [`docs/README.md`](README.md) for a complete, organized index of all documentation.
+
+Quick links:
+- **Getting started:** [`GETTING-STARTED-DEV.md`](GETTING-STARTED-DEV.md) (developers) or [`GETTING-STARTED-NONTECH.md`](GETTING-STARTED-NONTECH.md) (non-technical users)
+- **Installation:** [`MOBILE-INSTALL.md`](MOBILE-INSTALL.md) or [`RUNNING-ON-DEVICE.md`](RUNNING-ON-DEVICE.md)
+- **Build details:** [`ADVANCED-ANDROID-BUILD.md`](ADVANCED-ANDROID-BUILD.md)
+- **Configuration:** [`CONFIGURATION.md`](CONFIGURATION.md)
+- **Core version management:** [`CORE-VERSIONING.md`](CORE-VERSIONING.md)
 
 ## Key directories
 - `core/`: DigiByte Core source as a vendored git checkout pinned by `scripts/setup-core.sh`.
