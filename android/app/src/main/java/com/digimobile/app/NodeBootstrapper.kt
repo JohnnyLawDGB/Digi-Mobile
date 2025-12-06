@@ -34,6 +34,8 @@ class NodeBootstrapper(private val context: Context) {
         dataDir.mkdirs()
         binDir.mkdirs()
 
+        installBundledBinaries(context)
+
         val debugLogFile = File(dataDir, "debug.log")
         val configFile = File(dataDir, "digibyte.conf")
 
@@ -58,9 +60,9 @@ class NodeBootstrapper(private val context: Context) {
         val binDir = File(context.filesDir, "bin")
 
         return try {
-            stageNodeBinaries(context)
+            installBundledBinaries(context)
             val cliBinary = File(binDir, "digibyte-cli")
-            cliBinary.setExecutable(true, /* ownerOnly= */ true)
+            cliBinary.setExecutable(true, /* ownerOnly= */ false)
             cliBinary
         } catch (e: Exception) {
             if (!cliMissingLogged) {
@@ -86,8 +88,8 @@ class NodeBootstrapper(private val context: Context) {
         return when {
             abis.contains("arm64-v8a") -> {
                 BinaryAssets(
-                    daemonAssetName = "digibyted-arm64-v8a",
-                    cliAssetName = "digibyte-cli-arm64-v8a"
+                    daemonAssetName = "digibyted-arm64",
+                    cliAssetName = "digibyte-cli-arm64"
                 )
             }
             abis.contains("armeabi-v7a") -> {
@@ -108,15 +110,16 @@ class NodeBootstrapper(private val context: Context) {
 
         fun copyAsset(assetName: String, destName: String) {
             val destFile = File(binDir, destName)
-            context.assets.open("bin/$assetName").use { input ->
-                FileOutputStream(destFile).use { output ->
-                    input.copyTo(output)
+            if (!destFile.exists()) {
+                context.assets.open("bin/$assetName").use { input ->
+                    FileOutputStream(destFile).use { output ->
+                        input.copyTo(output)
+                    }
                 }
             }
-            destFile.setExecutable(true)
+            destFile.setExecutable(true, /* ownerOnly= */ false)
         }
 
-        // Always overwrite to ensure we have the correct ABI version.
         copyAsset(daemonAssetName, "digibyted")
         copyAsset(cliAssetName, "digibyte-cli")
 
@@ -124,6 +127,41 @@ class NodeBootstrapper(private val context: Context) {
             TAG,
             "Staged binaries for ABI=${Build.SUPPORTED_ABIS.joinToString()} daemon=$daemonAssetName cli=$cliAssetName"
         )
+    }
+
+    fun installBundledBinaries(context: Context) {
+        val binDir = File(context.filesDir, "bin").apply { mkdirs() }
+
+        fun installIfMissing(assetName: String, destinationName: String) {
+            val destination = File(binDir, destinationName)
+            if (!destination.exists()) {
+                context.assets.open("bin/$assetName").use { input ->
+                    FileOutputStream(destination).use { output ->
+                        input.copyTo(output)
+                    }
+                }
+            }
+            destination.setExecutable(true, /* ownerOnly= */ false)
+        }
+
+        installIfMissing("digibyted-arm64", "digibyted")
+        installIfMissing("digibyte-cli-arm64", "digibyte-cli")
+    }
+
+    fun downloadOrUpdateBinaries(onLog: (String) -> Unit = { Log.i(TAG, it) }): Boolean {
+        val abis = Build.SUPPORTED_ABIS.toList()
+        if (abis.contains("arm64-v8a")) {
+            onLog("Using bundled ARM64 binaries; skipping download")
+            return true
+        }
+
+        return runCatching {
+            stageNodeBinaries(context)
+            true
+        }.getOrElse { error ->
+            onLog("Failed to update binaries: ${error.message}")
+            false
+        }
     }
 
     private fun ensureConfig(dataDir: File): RpcCredentials {
