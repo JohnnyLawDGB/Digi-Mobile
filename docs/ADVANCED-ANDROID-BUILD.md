@@ -165,12 +165,27 @@ When the APK is installed and first launched:
   ./gradlew assembleDebug --no-daemon
   ```
 
-### Binary file check shows wrong architecture
-- **Cause:** Built for wrong ABI or cross-compilation failed
-- **Fix:** Verify NDK toolchain and rebuild:
+### Binary file check shows wrong architecture (e.g., x86 instead of arm64)
+- **Cause:** `ANDROID_ABI` environment variable not set when building, or Gradle is building for the wrong ABI
+- **Fix 1 – Direct build script:** Always pass `ABI` explicitly:
   ```bash
+  ABI=arm64-v8a ANDROID_ABI=arm64-v8a ./scripts/build-android.sh
+  ```
+- **Fix 2 – Via setup.sh:** The interactive setup automatically detects and passes the correct ABI.
+  ```bash
+  ./setup.sh
+  ```
+- **Fix 3 – Manual verification:** Check the produced binary:
+  ```bash
+  file android/app/src/main/assets/bin/digibyted-arm64
+  # Should say: ELF 64-bit LSB executable, ARM aarch64, ...
   file android/app/src/main/jniLibs/arm64-v8a/digibyted
   # Should say: aarch64 with interpreter /system/bin/linker64
+  ```
+  If it says `Intel 80386` or `x86_64`, rebuild with:
+  ```bash
+  ./scripts/clean-build.sh
+  ABI=arm64-v8a ANDROID_ABI=arm64-v8a ./scripts/build-android.sh
   ```
 
 ## Customization
