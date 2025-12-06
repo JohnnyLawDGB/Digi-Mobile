@@ -85,30 +85,73 @@ build_digibyte_for_abi() {
   log "Staging native artifacts into ${JNI_TARGET_DIR}"
   mkdir -p "${JNI_TARGET_DIR}"
   shopt -s nullglob
-  for binary in "${BIN_DIR}"/*; do
-    cp "${binary}" "${JNI_TARGET_DIR}/"
-    log "Copied $(basename "${binary}")"
-  done
-  cp "${JNI_SO_SOURCE}" "${JNI_TARGET_DIR}/"
-  log "Copied $(basename "${JNI_SO_SOURCE}")"
-  if [[ -d "${LIB_DIR}" ]]; then
-    for so in "${LIB_DIR}"/*.so; do
-      cp "${so}" "${JNI_TARGET_DIR}/"
-      log "Copied $(basename "${so}")"
-    done
-  fi
-  shopt -u nullglob
 
-  log "digibyted staged to ${JNI_TARGET_DIR}."
-  log "Copying digibyted into APK assets at ${ASSET_BIN_DIR}"
-  mkdir -p "${ASSET_BIN_DIR}"
-  cp "${BIN_DIR}/digibyted" "${ASSET_BIN_DIR}/digibyted-${ABI}"
-  log "Copied digibyted-${ABI} asset"
-  if [[ -f "${BIN_DIR}/digibyte-cli" ]]; then
-    cp "${BIN_DIR}/digibyte-cli" "${ASSET_BIN_DIR}/digibyte-cli-${ABI}"
-    log "Copied digibyte-cli-${ABI} asset"
+  if [[ "${ABI}" == "arm64-v8a" ]]; then
+    # For arm64-v8a: use the cross-compiled android-prefix path and stage
+    # binaries with the names the Android app expects. Ensure executables have
+    # the correct permissions (install -m 755).
+    if [[ -f "${BIN_DIR}/digibyted" ]]; then
+      install -m 755 "${BIN_DIR}/digibyted" "${JNI_TARGET_DIR}/digibyted"
+    else
+      die "Expected digibyted at ${BIN_DIR}/digibyted but it is missing"
+    fi
+
+    # Copy JNI .so
+    install -m 644 "${JNI_SO_SOURCE}" "${JNI_TARGET_DIR}/$(basename "${JNI_SO_SOURCE}")"
+
+    # Copy any library .so files if present
+    if [[ -d "${LIB_DIR}" ]]; then
+      for so in "${LIB_DIR}"/*.so; do
+        install -m 644 "${so}" "${JNI_TARGET_DIR}/"
+      done
+    fi
+
+    shopt -u nullglob
+
+    # Print staged messages expected by the consumer
+    echo "[env-setup] digibyted staged to ${JNI_TARGET_DIR}."
+
+    # Stage into APK assets with new asset names (no -v8a suffix)
+    log "Copying digibyted into APK assets at ${ASSET_BIN_DIR}"
+    mkdir -p "${ASSET_BIN_DIR}"
+    install -m 755 "${BIN_DIR}/digibyted" "${ASSET_BIN_DIR}/digibyted-arm64"
+    echo "[env-setup] Copied digibyted-arm64 asset"
+
+    if [[ -f "${BIN_DIR}/digibyte-cli" ]]; then
+      install -m 755 "${BIN_DIR}/digibyte-cli" "${ASSET_BIN_DIR}/digibyte-cli-arm64"
+      echo "[env-setup] Copied digibyte-cli-arm64 asset"
+    else
+      echo "[env-setup] digibyte-cli not built for ${ABI}; CLI-driven features will be unavailable in the APK"
+    fi
+
   else
-    log "digibyte-cli not built for ${ABI}; CLI-driven features will be unavailable in the APK"
+    # Default behavior for other ABIs: copy everything into jniLibs and preserve executability
+    for binary in "${BIN_DIR}"/*; do
+      cp "${binary}" "${JNI_TARGET_DIR}/"
+      chmod 755 "${JNI_TARGET_DIR}/$(basename "${binary}")" || true
+      log "Copied $(basename "${binary}")"
+    done
+    cp "${JNI_SO_SOURCE}" "${JNI_TARGET_DIR}/"
+    log "Copied $(basename "${JNI_SO_SOURCE}")"
+    if [[ -d "${LIB_DIR}" ]]; then
+      for so in "${LIB_DIR}"/*.so; do
+        cp "${so}" "${JNI_TARGET_DIR}/"
+        log "Copied $(basename "${so}")"
+      done
+    fi
+    shopt -u nullglob
+
+    log "digibyted staged to ${JNI_TARGET_DIR}."
+    log "Copying digibyted into APK assets at ${ASSET_BIN_DIR}"
+    mkdir -p "${ASSET_BIN_DIR}"
+    cp "${BIN_DIR}/digibyted" "${ASSET_BIN_DIR}/digibyted-${ABI}"
+    log "Copied digibyted-${ABI} asset"
+    if [[ -f "${BIN_DIR}/digibyte-cli" ]]; then
+      cp "${BIN_DIR}/digibyte-cli" "${ASSET_BIN_DIR}/digibyte-cli-${ABI}"
+      log "Copied digibyte-cli-${ABI} asset"
+    else
+      log "digibyte-cli not built for ${ABI}; CLI-driven features will be unavailable in the APK"
+    fi
   fi
 }
 
