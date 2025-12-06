@@ -23,6 +23,20 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
+      - name: Install build tools
+        run: |
+          apt-get update -qq
+          apt-get install -y -qq ninja-build curl pkg-config
+
+      - name: Set up DigiByte Core
+        run: ./scripts/setup-core.sh
+
+      - name: Build DigiByte daemon for Android
+        run: ./scripts/build-android.sh
+
+      - name: Prepare Gradle wrapper JAR
+        run: ./scripts/prepare-gradle-wrapper.sh
+
       - name: Build debug APK
         uses: gradle/gradle-build-action@v3
         with:
