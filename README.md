@@ -29,6 +29,9 @@ For a plain-English overview, see [`docs/GETTING-STARTED-NONTECH.md`](docs/GETTI
    ```
    This installs prerequisites, builds the daemon, and packages the APK.
 
+If you hit the NDK fuzz harness build failure about `cookie_io_functions_t`, use the condensed guide in [`docs/ANDROID-FUZZ-BUILD-FIX.md`](docs/ANDROID-FUZZ-BUILD-FIX.md) to apply the one-line guard patch and rebuild.
+
+Digi-Mobile currently wraps DigiByte Core v8.26.x (default tag `v8.26.1`). See [`docs/CORE-VERSIONING.md`](docs/CORE-VERSIONING.md) for details.
 For detailed steps, prerequisites, and troubleshooting, see [`docs/GETTING-STARTED-DEV.md`](docs/GETTING-STARTED-DEV.md).
 
 ### 🏗️ Advanced – Manual Build Steps
