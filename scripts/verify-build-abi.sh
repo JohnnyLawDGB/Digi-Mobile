@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Verify that built binaries are the correct architecture (arm64 or other as requested).
+# Verify that built binaries are the correct architecture (ARM64-only).
 # Use this to diagnose "wrong architecture" build issues.
 
 set -euo pipefail
@@ -13,49 +13,31 @@ log() {
 
 check_file_abi() {
   local filepath="$1"
-  local expected_abi="$2"
-  
+
   if [[ ! -f "$filepath" ]]; then
     log "MISSING: $filepath"
     return 1
   fi
-  
+
   local file_type
   file_type="$(file "$filepath" 2>/dev/null || echo "unknown")"
-  
+
   log "$filepath"
   log "  File type: $file_type"
-  
-  case "$expected_abi" in
-    arm64-v8a)
-      if echo "$file_type" | grep -q "aarch64"; then
-        log "  ✓ Correct: arm64-v8a (aarch64)"
-        return 0
-      elif echo "$file_type" | grep -qE "(x86_64|Intel 80386|i386)"; then
-        log "  ✗ ERROR: Built for x86/x86_64 instead of arm64!"
-        return 1
-      else
-        log "  ? UNKNOWN: Could not determine architecture from file type"
-        return 1
-      fi
-      ;;
-    armeabi-v7a)
-      if echo "$file_type" | grep -qE "(ARM|arm)"; then
-        log "  ✓ Correct: armeabi-v7a (ARM)"
-        return 0
-      else
-        log "  ✗ ERROR: Not built for ARM 32-bit"
-        return 1
-      fi
-      ;;
-    *)
-      log "  ? Unknown ABI: $expected_abi"
-      return 1
-      ;;
-  esac
+
+  if echo "$file_type" | grep -q "aarch64"; then
+    log "  ✓ Correct: arm64-v8a (aarch64)"
+    return 0
+  elif echo "$file_type" | grep -qE "(x86_64|Intel 80386|i386)"; then
+    log "  ✗ ERROR: Built for x86/x86_64 instead of arm64!"
+    return 1
+  else
+    log "  ✗ ERROR: Unknown or incorrect architecture"
+    return 1
+  fi
 }
 
-ANDROID_ABI="${ANDROID_ABI:-arm64-v8a}"
+ANDROID_ABI="arm64-v8a"
 log "Verifying build artifacts for ABI: $ANDROID_ABI"
 log ""
 

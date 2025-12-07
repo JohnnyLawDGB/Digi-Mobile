@@ -85,23 +85,14 @@ class NodeBootstrapper(private val context: Context) {
     private fun selectBinaryAssetsForDevice(): BinaryAssets {
         val abis = Build.SUPPORTED_ABIS.toList()
 
-        return when {
-            abis.contains("arm64-v8a") -> {
-                BinaryAssets(
-                    daemonAssetName = "digibyted-arm64",
-                    cliAssetName = "digibyte-cli-arm64"
-                )
-            }
-            abis.contains("armeabi-v7a") -> {
-                BinaryAssets(
-                    daemonAssetName = "digibyted-armeabi-v7a",
-                    cliAssetName = "digibyte-cli-armeabi-v7a"
-                )
-            }
-            else -> {
-                throw IllegalStateException("Unsupported ABI: $abis")
-            }
+        if (abis.contains("arm64-v8a")) {
+            return BinaryAssets(
+                daemonAssetName = "digibyted-arm64",
+                cliAssetName = "digibyte-cli-arm64"
+            )
         }
+
+        throw IllegalStateException("Unsupported ABI for Digi-Mobile (ARM64-only): $abis")
     }
 
     private fun stageNodeBinaries(context: Context) {

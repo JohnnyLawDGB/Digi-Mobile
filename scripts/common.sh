@@ -107,8 +107,14 @@ detect_prebuilt() {
   )
   for path in "${candidates[@]}"; do
     if [[ -f "$path" ]]; then
-      echo "$path"
-      return 0
+      local desc
+      desc="$(file "$path" || true)"
+      if [[ "$desc" =~ aarch64 ]]; then
+        echo "$path"
+        return 0
+      else
+        color_echo yellow "[common] Ignoring non-ARM64 binary candidate at $path (file: $desc)"
+      fi
     fi
   done
   return 1

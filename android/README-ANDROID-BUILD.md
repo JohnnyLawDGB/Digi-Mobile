@@ -33,7 +33,7 @@ Artifacts appear in `android/app/src/main/jniLibs/arm64-v8a/` after `build-andro
    ./scripts/prepare-gradle-wrapper.sh
    ```
 2. Ensure your Android SDK/NDK paths are available to Gradle via `ANDROID_SDK_ROOT` / `ANDROID_NDK_HOME` or `local.properties`.
-3. Build the APKs (Gradle drives CMake to compile `libdigimobile_jni.so` for `arm64-v8a` and `armeabi-v7a`):
+3. Build the APKs (Gradle drives CMake to compile `libdigimobile_jni.so` for `arm64-v8a` only):
    ```bash
    ./gradlew :android:app:assembleDebug
    ./gradlew :android:app:assembleRelease
@@ -42,9 +42,8 @@ Artifacts appear in `android/app/src/main/jniLibs/arm64-v8a/` after `build-andro
    ```bash
    unzip -l android/app/build/outputs/apk/debug/app-debug.apk | grep digimobile_jni
    ```
-   You should see `lib/arm64-v8a/libdigimobile_jni.so` (and `armeabi-v7a` if that ABI was built).
-5. For Samsung SM-N950U (64-bit) builds, keep the default `arm64-v8a` ABI filter in `android/app/build.gradle`; `armeabi-v7a` is
-   also produced for older 32-bit devices.
+   You should see `lib/arm64-v8a/libdigimobile_jni.so`.
+5. Digi-Mobile builds are ARM64-only; non-ARM64 ABIs will fail at configuration time.
 
 ## Build flags
 - Size-focused defaults: `-Os -ffunction-sections -fdata-sections` with `--gc-sections` during link.

@@ -1,0 +1,26 @@
+diff --git a/configure.ac b/configure.ac
+index c9bd929..d6dcb7c 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -59,6 +59,11 @@ case "$host_os" in
+ esac
+ AC_SUBST(android_host)
+ 
++if test "x$android_host" = "xyes"; then
++  enable_fuzz=no
++  enable_fuzz_binary=no
++fi
++
+ AH_TOP([#ifndef DIGIBYTE_CONFIG_H])
+ AH_TOP([#define DIGIBYTE_CONFIG_H])
+ AH_BOTTOM([#endif //DIGIBYTE_CONFIG_H])
+@@ -1853,7 +1858,7 @@ AM_CONDITIONAL([ENABLE_WALLET], [test "$enable_wallet" = "yes"])
+ AM_CONDITIONAL([USE_SQLITE], [test "$use_sqlite" = "yes"])
+ AM_CONDITIONAL([USE_BDB], [test "$use_bdb" = "yes"])
+ AM_CONDITIONAL([ENABLE_TESTS], [test "$BUILD_TEST" = "yes"])
+ AM_CONDITIONAL([ENABLE_FUZZ], [test "$enable_fuzz" = "yes" -a "$android_host" = "no" -a "$cross_compiling" = "no"])
+-AM_CONDITIONAL([ENABLE_FUZZ_BINARY], [test "$enable_fuzz_binary" = "yes"])
++AM_CONDITIONAL([ENABLE_FUZZ_BINARY], [test "$enable_fuzz_binary" = "yes" -a "$android_host" = "no"])
+ AM_CONDITIONAL([ENABLE_QT], [test "$digibyte_enable_qt" = "yes"])
+ AM_CONDITIONAL([ENABLE_QT_TESTS], [test "$BUILD_TEST_QT" = "yes"])
+ AM_CONDITIONAL([USE_QRCODE], [test "$use_qrcode" = "yes"])
