@@ -227,7 +227,7 @@ bool ContainsSpentInput(const CTransaction& tx, const CCoinsViewCache& inputs) n
     return false;
 }
 
-#if (defined(__GLIBC__) || defined(__FreeBSD__)) && !defined(__ANDROID__) && !defined(__BIONIC__) && !defined(ANDROID)
+#if ((defined(__GLIBC__) && defined(_GNU_SOURCE)) || defined(__FreeBSD__)) && !defined(__ANDROID__) && !defined(__BIONIC__) && !defined(ANDROID)
 FILE* FuzzedFileProvider::open()
 {
 #if defined(__ANDROID__)
