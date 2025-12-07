@@ -107,6 +107,9 @@ else
   color_echo green "core/ submodule already initialized."
 fi
 
+print_step "Syncing DigiByte Core checkout (fetch + depends tree)"
+"$REPO_ROOT/scripts/setup-core.sh"
+
 CONFIG_PATH="$DEFAULT_PRUNED_CONFIG"
 if confirm "Use pruned config (recommended)?" "y"; then
   color_echo green "Selected pruned config: $CONFIG_PATH"
