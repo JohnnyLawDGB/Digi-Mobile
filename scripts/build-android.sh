@@ -44,7 +44,37 @@ build_digibyte_for_abi() {
   local ASSET_BIN_DIR="${ROOT_DIR}/android/app/src/main/assets/bin"
 
   : "${ANDROID_NDK_ROOT:=${ANDROID_NDK_HOME}}"
-  TOOLCHAIN_BIN="${ANDROID_NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64/bin"
+    # Resolve NDK root: prefer explicit ANDROID_NDK_ROOT/ANDROID_NDK_HOME, then
+    # attempt to auto-detect from common SDK locations using the pinned version
+    # in .versions/android.env.sh. This guards against users copy/pasting the
+    # example placeholder path.
+    : "${ANDROID_NDK_ROOT:=${ANDROID_NDK_HOME:-}}"
+    if [[ -z "${ANDROID_NDK_ROOT}" || ! -d "${ANDROID_NDK_ROOT}" ]]; then
+      CANDIDATES=("${ANDROID_NDK_HOME:-}" "${ANDROID_SDK_ROOT:-}/ndk/${ANDROID_NDK_VERSION}" "${ANDROID_HOME:-}/ndk/${ANDROID_NDK_VERSION}" "${HOME}/Android/Sdk/ndk/${ANDROID_NDK_VERSION}" "${HOME}/Android/Sdk/ndk")
+      for cand in "${CANDIDATES[@]}"; do
+        if [[ -n "${cand}" && -d "${cand}" ]]; then
+          # If candidate is the parent ndk directory, prefer the directory matching the pinned version
+          if [[ "${cand}" =~ /ndk$ ]]; then
+            if [[ -d "${cand}/${ANDROID_NDK_VERSION}" ]]; then
+              ANDROID_NDK_ROOT="${cand}/${ANDROID_NDK_VERSION}"
+              break
+            else
+              # if there is exactly one entry, use it
+              entries=("${cand}"/*)
+              if [[ ${#entries[@]} -eq 1 && -d "${entries[0]}" ]]; then
+                ANDROID_NDK_ROOT="${entries[0]}"
+                break
+              fi
+            fi
+          else
+            ANDROID_NDK_ROOT="${cand}"
+            break
+          fi
+        fi
+      done
+    fi
+
+    TOOLCHAIN_BIN="${ANDROID_NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64/bin"
   ANDROID_API_LEVEL="${ANDROID_NDK_API_LEVEL}"
 
   case "${ABI}" in
@@ -70,7 +100,10 @@ build_digibyte_for_abi() {
   log "Using NDK: ${ANDROID_NDK_ROOT}"
   log "Compiler CC: $CC"
   log "Compiler CXX: $CXX"
-  [[ -d "${ANDROID_NDK_ROOT}" ]] || die "NDK path does not exist: ${ANDROID_NDK_ROOT}"
+  if [[ -z "${ANDROID_NDK_ROOT}" || ! -d "${ANDROID_NDK_ROOT}" ]]; then
+    die "NDK path does not exist: ${ANDROID_NDK_ROOT}
+Tried common locations. Set ANDROID_NDK_HOME or ANDROID_NDK_ROOT to your NDK path."
+  fi
   [[ -f "${ANDROID_NDK_ROOT}/build/cmake/android.toolchain.cmake" ]] || die "NDK toolchain not found at ${ANDROID_NDK_ROOT}/build/cmake/android.toolchain.cmake"
   [[ -x "$CC" ]] || die "Compiler not found or not executable: $CC"
   
