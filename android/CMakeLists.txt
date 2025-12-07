@@ -41,6 +41,38 @@ endif()
 
 set(DGB_DEPENDS_CONFIG_SITE "${DGB_DEPENDS_DIR}/${DGB_HOST_TRIPLE}/share/config.site")
 
+# When CMAKE_SYSROOT is not provided, attempt to infer it from the Android NDK
+# pointed to by ANDROID_NDK or ANDROID_NDK_HOME. Autotools' configure will then
+# receive an explicit --with-sysroot flag, preventing accidental host sysroot
+# usage that can result in x86_64 outputs.
+if((NOT DEFINED CMAKE_SYSROOT OR CMAKE_SYSROOT STREQUAL "") AND DEFINED ENV{ANDROID_NDK_HOME})
+  set(_ndk_sysroot "$ENV{ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/sysroot")
+  if(EXISTS "${_ndk_sysroot}")
+    set(CMAKE_SYSROOT "${_ndk_sysroot}" CACHE PATH "Android sysroot" FORCE)
+  endif()
+endif()
+
+# Detect the build machine triple for explicit --build flag when cross-compiling.
+# Prefer config.guess from the upstream tree; fall back to CMake's host values.
+set(DGB_BUILD_TRIPLE "")
+if(EXISTS "${DIGIBYTE_CORE_SOURCE_DIR}/build-aux/config.guess")
+  execute_process(
+    COMMAND ${DIGIBYTE_CORE_SOURCE_DIR}/build-aux/config.guess
+    WORKING_DIRECTORY ${DIGIBYTE_CORE_SOURCE_DIR}
+    OUTPUT_VARIABLE DGB_BUILD_TRIPLE
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    RESULT_VARIABLE DGB_CONFIG_GUESS_RESULT
+  )
+  if(NOT DGB_CONFIG_GUESS_RESULT EQUAL 0)
+    set(DGB_BUILD_TRIPLE "")
+  endif()
+endif()
+
+if(DGB_BUILD_TRIPLE STREQUAL "")
+  string(TOLOWER "${CMAKE_HOST_SYSTEM_NAME}" DGB_HOST_SYSNAME_LOWER)
+  set(DGB_BUILD_TRIPLE "${CMAKE_HOST_SYSTEM_PROCESSOR}-pc-${DGB_HOST_SYSNAME_LOWER}")
+endif()
+
 # Common flags aim for small binaries; GUI and bench/test targets are disabled to
 # shorten Android build times.
 set(DGB_COMMON_CFLAGS "-fPIC -Os -ffunction-sections -fdata-sections")
@@ -103,6 +135,13 @@ if(DGB_LD STREQUAL "")
   endif()
 endif()
 
+# Prefer toolchain bin directory (derived from CC) when spawning configure so that
+# auxiliary tools such as strip come from the Android NDK, not the host toolchain.
+get_filename_component(DGB_TOOLCHAIN_BIN "${DGB_CC}" DIRECTORY)
+if(NOT EXISTS "${DGB_TOOLCHAIN_BIN}")
+  message(FATAL_ERROR "Toolchain bin directory not found for CC: ${DGB_CC}")
+endif()
+
 # Warn if compiler doesn't look like a cross-compiler
 if(NOT DGB_CC MATCHES "aarch64|armv7a" AND NOT DGB_CC MATCHES "clang")
   message(WARNING "WARNING: DGB_CC does not appear to be an ARM Android cross-compiler: ${DGB_CC}")
@@ -125,6 +164,8 @@ set(DGB_CONFIGURE_ENV
   "AR=${DGB_AR}"
   "RANLIB=${DGB_RANLIB}"
   "LD=${DGB_LD}"
+  "STRIP=${DGB_TOOLCHAIN_BIN}/llvm-strip"
+  "PATH=${DGB_TOOLCHAIN_BIN}:$ENV{PATH}"
   # When building for Android we rely on the depends/ tree to provide
   # cross-compiled libraries (libevent, etc.). Point pkg-config at the
   # depends package dirs so `configure` can locate them instead of searching
@@ -142,6 +183,7 @@ endif()
 
 set(DGB_CONFIGURE_ARGS
   "--host=${DGB_HOST_TRIPLE}"
+  "--build=${DGB_BUILD_TRIPLE}"
   "--prefix=${DIGIBYTE_CORE_PREFIX}"
   "--disable-bench"
   "--disable-man"
