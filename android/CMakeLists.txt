@@ -208,8 +208,6 @@ if(DEFINED CMAKE_SYSROOT AND NOT CMAKE_SYSROOT STREQUAL "")
   list(APPEND DGB_CONFIGURE_ARGS "--with-sysroot=${CMAKE_SYSROOT}")
 endif()
 
-string(REPLACE ";" " " DGB_CONFIGURE_ARGS_STRING "${DGB_CONFIGURE_ARGS}")
-
 cmake_host_system_information(RESULT DGB_JOB_COUNT QUERY NUMBER_OF_LOGICAL_CORES)
 if(NOT DGB_JOB_COUNT)
   set(DGB_JOB_COUNT 4)
@@ -245,11 +243,8 @@ if(EXISTS "${DIGIBYTE_CORE_SOURCE_DIR}/src")
       ${DIGIBYTE_CORE_SOURCE_DIR}/autogen.sh
       COMMAND ${CMAKE_COMMAND} -E env
       ${DGB_TOOLCHAIN_ENV}
-      /bin/sh -c [=[if [ "${DGB_HOST_TRIPLE}" != "aarch64-linux-android" ]; then
-        echo 'Android pipeline only supports aarch64-linux-android host for digibyte_core.';
-        exit 1;
-      fi;
-      exec ${DIGIBYTE_CORE_SOURCE_DIR}/configure ${DGB_CONFIGURE_ARGS_STRING}]=]
+      ${DIGIBYTE_CORE_SOURCE_DIR}/configure
+      ${DGB_CONFIGURE_ARGS}
     BUILD_COMMAND ${CMAKE_COMMAND} -E env
       ${DGB_TOOLCHAIN_ENV}
       ${DGB_MAKE_PROGRAM} -j${DGB_JOB_COUNT}
