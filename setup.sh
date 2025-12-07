@@ -131,7 +131,8 @@ if [[ "$use_prebuilt" == false ]]; then
     exit 1
   fi
   color_echo yellow "Building DigiByte Core for Android ($SELECTED_ABI, this may take a while)..."
-  ANDROID_NDK_HOME="$NDK_PATH" "$REPO_ROOT/scripts/build-android.sh"
+  # Explicitly pass ABI and NDK to ensure correct architecture is built
+  ABI="$SELECTED_ABI" ANDROID_ABI="$SELECTED_ABI" ANDROID_NDK_HOME="$NDK_PATH" "$REPO_ROOT/scripts/build-android.sh"
   prebuilt="$(detect_prebuilt || true)"
 fi
 

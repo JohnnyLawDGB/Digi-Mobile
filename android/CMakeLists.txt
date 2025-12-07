@@ -60,30 +60,59 @@ endif()
 
 set(DGB_EXTRA_CONFIGURE_ARGS "" CACHE STRING "Additional configure flags passed to DigiByte Core")
 
+# CRITICAL: Prioritize environment variables (set by build-android.sh) over CMake detected compilers
+# to ensure we always use the NDK cross-compiler (aarch64-clang), not the host compiler (gcc/clang).
 set(DGB_CC "$ENV{CC}")
-if(DGB_CC STREQUAL "")
+if(DGB_CC STREQUAL "" AND NOT CMAKE_C_COMPILER STREQUAL "")
   set(DGB_CC "${CMAKE_C_COMPILER}")
+elseif(DGB_CC STREQUAL "")
+  message(FATAL_ERROR "CC environment variable not set and CMAKE_C_COMPILER is empty. This indicates the NDK toolchain was not properly loaded or build-android.sh did not set CC. Check your NDK path and CMake configuration.")
 endif()
 
 set(DGB_CXX "$ENV{CXX}")
-if(DGB_CXX STREQUAL "")
+if(DGB_CXX STREQUAL "" AND NOT CMAKE_CXX_COMPILER STREQUAL "")
   set(DGB_CXX "${CMAKE_CXX_COMPILER}")
+elseif(DGB_CXX STREQUAL "")
+  message(FATAL_ERROR "CXX environment variable not set and CMAKE_CXX_COMPILER is empty. Ensure build-android.sh passes CXX env var correctly.")
 endif()
 
 set(DGB_AR "$ENV{AR}")
 if(DGB_AR STREQUAL "")
-  set(DGB_AR "${CMAKE_AR}")
+  if(NOT CMAKE_AR STREQUAL "")
+    set(DGB_AR "${CMAKE_AR}")
+  else()
+    message(FATAL_ERROR "AR environment variable not set and CMAKE_AR is empty.")
+  endif()
 endif()
 
 set(DGB_RANLIB "$ENV{RANLIB}")
 if(DGB_RANLIB STREQUAL "")
-  set(DGB_RANLIB "${CMAKE_RANLIB}")
+  if(NOT CMAKE_RANLIB STREQUAL "")
+    set(DGB_RANLIB "${CMAKE_RANLIB}")
+  else()
+    message(FATAL_ERROR "RANLIB environment variable not set and CMAKE_RANLIB is empty.")
+  endif()
 endif()
 
 set(DGB_LD "$ENV{LD}")
 if(DGB_LD STREQUAL "")
-  set(DGB_LD "${CMAKE_LINKER}")
+  if(NOT CMAKE_LINKER STREQUAL "")
+    set(DGB_LD "${CMAKE_LINKER}")
+  else()
+    message(FATAL_ERROR "LD environment variable not set and CMAKE_LINKER is empty.")
+  endif()
 endif()
+
+# Warn if compiler doesn't look like a cross-compiler
+if(NOT DGB_CC MATCHES "aarch64|armv7a" AND NOT DGB_CC MATCHES "clang")
+  message(WARNING "WARNING: DGB_CC does not appear to be an ARM Android cross-compiler: ${DGB_CC}")
+endif()
+
+# Log the actual compilers being used for debugging
+message(STATUS "[Digi-Mobile] DGB_CC = ${DGB_CC}")
+message(STATUS "[Digi-Mobile] DGB_CXX = ${DGB_CXX}")
+message(STATUS "[Digi-Mobile] DGB_HOST_TRIPLE = ${DGB_HOST_TRIPLE}")
+message(STATUS "[Digi-Mobile] DGB_CORE_CFLAGS = ${DGB_CORE_CFLAGS}")
 
 string(REGEX REPLACE "(^| )-D_FORTIFY_SOURCE=2($| )" " " DGB_CORE_CFLAGS "${CMAKE_C_FLAGS} ${DGB_COMMON_CFLAGS}")
 string(REGEX REPLACE "(^| )-D_FORTIFY_SOURCE=2($| )" " " DGB_CORE_CXXFLAGS "${CMAKE_CXX_FLAGS} ${DGB_COMMON_CFLAGS}")
@@ -96,8 +125,12 @@ set(DGB_CONFIGURE_ENV
   "AR=${DGB_AR}"
   "RANLIB=${DGB_RANLIB}"
   "LD=${DGB_LD}"
-  "PKG_CONFIG_LIBDIR="
-  "PKG_CONFIG_PATH="
+  # When building for Android we rely on the depends/ tree to provide
+  # cross-compiled libraries (libevent, etc.). Point pkg-config at the
+  # depends package dirs so `configure` can locate them instead of searching
+  # the host system.
+  "PKG_CONFIG_LIBDIR=${DGB_DEPENDS_DIR}/${DGB_HOST_TRIPLE}/lib/pkgconfig:${DGB_DEPENDS_DIR}/${DGB_HOST_TRIPLE}/share/pkgconfig"
+  "PKG_CONFIG_PATH=${DGB_DEPENDS_DIR}/${DGB_HOST_TRIPLE}/lib/pkgconfig:${DGB_DEPENDS_DIR}/${DGB_HOST_TRIPLE}/share/pkgconfig"
   "CFLAGS=${DGB_CORE_CFLAGS}"
   "CXXFLAGS=${DGB_CORE_CXXFLAGS}"
   "LDFLAGS=${CMAKE_EXE_LINKER_FLAGS} ${DGB_COMMON_LDFLAGS}"
@@ -157,12 +190,30 @@ if(EXISTS "${DIGIBYTE_CORE_SOURCE_DIR}/src")
     SOURCE_DIR "${DIGIBYTE_CORE_SOURCE_DIR}"
     BINARY_DIR "${DIGIBYTE_CORE_BUILD_DIR}"
     CONFIGURE_COMMAND
-      ${CMAKE_COMMAND} -E env ${DGB_CONFIGURE_ENV}
+      ${CMAKE_COMMAND} -E env
+      "CC=${DGB_CC}" "CXX=${DGB_CXX}" "AR=${DGB_AR}" "RANLIB=${DGB_RANLIB}" "LD=${DGB_LD}"
+      "CFLAGS=${DGB_CORE_CFLAGS}" "CXXFLAGS=${DGB_CORE_CXXFLAGS}"
+      "LDFLAGS=${CMAKE_EXE_LINKER_FLAGS} ${DGB_COMMON_LDFLAGS}"
+      "PKG_CONFIG_LIBDIR=${DGB_DEPENDS_DIR}/${DGB_HOST_TRIPLE}/lib/pkgconfig:${DGB_DEPENDS_DIR}/${DGB_HOST_TRIPLE}/share/pkgconfig"
+      "PKG_CONFIG_PATH=${DGB_DEPENDS_DIR}/${DGB_HOST_TRIPLE}/lib/pkgconfig:${DGB_DEPENDS_DIR}/${DGB_HOST_TRIPLE}/share/pkgconfig"
       ${DIGIBYTE_CORE_SOURCE_DIR}/autogen.sh
-      COMMAND ${CMAKE_COMMAND} -E env ${DGB_CONFIGURE_ENV}
+      COMMAND ${CMAKE_COMMAND} -E env
+      "CC=${DGB_CC}" "CXX=${DGB_CXX}" "AR=${DGB_AR}" "RANLIB=${DGB_RANLIB}" "LD=${DGB_LD}"
+      "CFLAGS=${DGB_CORE_CFLAGS}" "CXXFLAGS=${DGB_CORE_CXXFLAGS}"
+      "LDFLAGS=${CMAKE_EXE_LINKER_FLAGS} ${DGB_COMMON_LDFLAGS}"
+      "PKG_CONFIG_LIBDIR=${DGB_DEPENDS_DIR}/${DGB_HOST_TRIPLE}/lib/pkgconfig:${DGB_DEPENDS_DIR}/${DGB_HOST_TRIPLE}/share/pkgconfig"
+      "PKG_CONFIG_PATH=${DGB_DEPENDS_DIR}/${DGB_HOST_TRIPLE}/lib/pkgconfig:${DGB_DEPENDS_DIR}/${DGB_HOST_TRIPLE}/share/pkgconfig"
       ${DIGIBYTE_CORE_SOURCE_DIR}/configure ${DGB_CONFIGURE_ARGS}
-    BUILD_COMMAND ${CMAKE_COMMAND} -E env ${DGB_CONFIGURE_ENV} ${DGB_MAKE_PROGRAM} -j${DGB_JOB_COUNT}
-    INSTALL_COMMAND ${CMAKE_COMMAND} -E env ${DGB_CONFIGURE_ENV} ${DGB_MAKE_PROGRAM} install
+    BUILD_COMMAND ${CMAKE_COMMAND} -E env
+      "CC=${DGB_CC}" "CXX=${DGB_CXX}" "AR=${DGB_AR}" "RANLIB=${DGB_RANLIB}" "LD=${DGB_LD}"
+      "CFLAGS=${DGB_CORE_CFLAGS}" "CXXFLAGS=${DGB_CORE_CXXFLAGS}"
+      "LDFLAGS=${CMAKE_EXE_LINKER_FLAGS} ${DGB_COMMON_LDFLAGS}"
+      ${DGB_MAKE_PROGRAM} -j${DGB_JOB_COUNT}
+    INSTALL_COMMAND ${CMAKE_COMMAND} -E env
+      "CC=${DGB_CC}" "CXX=${DGB_CXX}" "AR=${DGB_AR}" "RANLIB=${DGB_RANLIB}" "LD=${DGB_LD}"
+      "CFLAGS=${DGB_CORE_CFLAGS}" "CXXFLAGS=${DGB_CORE_CXXFLAGS}"
+      "LDFLAGS=${CMAKE_EXE_LINKER_FLAGS} ${DGB_COMMON_LDFLAGS}"
+      ${DGB_MAKE_PROGRAM} install
     DEPENDS digibyte_depends
     USES_TERMINAL_CONFIGURE 1
     USES_TERMINAL_BUILD 1

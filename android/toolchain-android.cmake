@@ -19,6 +19,7 @@ if(NOT EXISTS "${ANDROID_NDK}/build/cmake/android.toolchain.cmake")
   message(FATAL_ERROR "Could not locate android.toolchain.cmake under ${ANDROID_NDK}")
 endif()
 
+# Must be set BEFORE including the NDK toolchain
 if(NOT DEFINED ANDROID_ABI OR ANDROID_ABI STREQUAL "")
   set(ANDROID_ABI "arm64-v8a" CACHE STRING "Android ABI")
 endif()
@@ -27,13 +28,28 @@ if(NOT DEFINED ANDROID_PLATFORM OR ANDROID_PLATFORM STREQUAL "")
   set(ANDROID_PLATFORM 24 CACHE STRING "Android API level")
 endif()
 
+# Set system-level variables BEFORE including NDK toolchain
 set(CMAKE_SYSTEM_NAME Android)
 set(CMAKE_ANDROID_NDK "${ANDROID_NDK}")
 set(CMAKE_ANDROID_ARCH_ABI "${ANDROID_ABI}")
 set(CMAKE_SYSTEM_VERSION "${ANDROID_PLATFORM}")
 set(CMAKE_ANDROID_STL_TYPE "c++_static" CACHE STRING "Android STL" FORCE)
 
+# CRITICAL: Include the NDK's official CMake toolchain FIRST
+# This sets CMAKE_C_COMPILER, CMAKE_CXX_COMPILER, and other cross-compile settings
 include("${ANDROID_NDK}/build/cmake/android.toolchain.cmake")
+
+# Verify that the NDK toolchain was properly loaded by checking if a compiler was set
+if(NOT CMAKE_C_COMPILER)
+  message(FATAL_ERROR "CMAKE_C_COMPILER not set after including NDK toolchain. NDK toolchain may not have been loaded correctly.")
+endif()
+
+message(STATUS "[Digi-Mobile] Android NDK Toolchain Loaded")
+message(STATUS "[Digi-Mobile] CMAKE_C_COMPILER: ${CMAKE_C_COMPILER}")
+message(STATUS "[Digi-Mobile] CMAKE_CXX_COMPILER: ${CMAKE_CXX_COMPILER}")
+message(STATUS "[Digi-Mobile] Android ABI: ${ANDROID_ABI}")
+message(STATUS "[Digi-Mobile] Android Platform: ${ANDROID_PLATFORM}")
+message(STATUS "[Digi-Mobile] CMAKE_SYSTEM_NAME: ${CMAKE_SYSTEM_NAME}")
 
 # Default to position-independent code; additional Android-friendly flags are
 # applied in the top-level android/CMakeLists.txt.

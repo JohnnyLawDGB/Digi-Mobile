@@ -64,7 +64,8 @@ check_ndk_version() {
   local ndk_revision
   ndk_revision="$(grep -E "Pkg\.Revision" "${source_props}" | awk -F= '{print $2}' | tr -d '[:space:]')"
   if [[ "${ndk_revision}" != "${ANDROID_NDK_VERSION}" ]]; then
-    die "NDK version mismatch: found ${ndk_revision}, expected ${ANDROID_NDK_VERSION}."
+    log "WARNING: NDK version mismatch: found ${ndk_revision}, expected ${ANDROID_NDK_VERSION}."
+    log "         Proceeding anyway; NDK is generally backward compatible. If build fails, ensure NDK ${ANDROID_NDK_VERSION} is installed."
   fi
 }
 

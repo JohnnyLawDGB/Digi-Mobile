@@ -34,7 +34,10 @@ android {
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
 
         ndk {
-            abiFilters "armeabi-v7a", "arm64-v8a"
+            // Respect ANDROID_ABI environment variable; default to arm64-v8a if not set.
+            // This ensures Gradle only builds native components (JNI) for the same ABI
+            // that the cross-compiled daemon was built for.
+            abiFilters = targetAbis
         }
 
         externalNativeBuild {

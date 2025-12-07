@@ -44,7 +44,37 @@ build_digibyte_for_abi() {
   local ASSET_BIN_DIR="${ROOT_DIR}/android/app/src/main/assets/bin"
 
   : "${ANDROID_NDK_ROOT:=${ANDROID_NDK_HOME}}"
-  TOOLCHAIN_BIN="${ANDROID_NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64/bin"
+    # Resolve NDK root: prefer explicit ANDROID_NDK_ROOT/ANDROID_NDK_HOME, then
+    # attempt to auto-detect from common SDK locations using the pinned version
+    # in .versions/android.env.sh. This guards against users copy/pasting the
+    # example placeholder path.
+    : "${ANDROID_NDK_ROOT:=${ANDROID_NDK_HOME:-}}"
+    if [[ -z "${ANDROID_NDK_ROOT}" || ! -d "${ANDROID_NDK_ROOT}" ]]; then
+      CANDIDATES=("${ANDROID_NDK_HOME:-}" "${ANDROID_SDK_ROOT:-}/ndk/${ANDROID_NDK_VERSION}" "${ANDROID_HOME:-}/ndk/${ANDROID_NDK_VERSION}" "${HOME}/Android/Sdk/ndk/${ANDROID_NDK_VERSION}" "${HOME}/Android/Sdk/ndk")
+      for cand in "${CANDIDATES[@]}"; do
+        if [[ -n "${cand}" && -d "${cand}" ]]; then
+          # If candidate is the parent ndk directory, prefer the directory matching the pinned version
+          if [[ "${cand}" =~ /ndk$ ]]; then
+            if [[ -d "${cand}/${ANDROID_NDK_VERSION}" ]]; then
+              ANDROID_NDK_ROOT="${cand}/${ANDROID_NDK_VERSION}"
+              break
+            else
+              # if there is exactly one entry, use it
+              entries=("${cand}"/*)
+              if [[ ${#entries[@]} -eq 1 && -d "${entries[0]}" ]]; then
+                ANDROID_NDK_ROOT="${entries[0]}"
+                break
+              fi
+            fi
+          else
+            ANDROID_NDK_ROOT="${cand}"
+            break
+          fi
+        fi
+      done
+    fi
+
+    TOOLCHAIN_BIN="${ANDROID_NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64/bin"
   ANDROID_API_LEVEL="${ANDROID_NDK_API_LEVEL}"
 
   case "${ABI}" in
@@ -67,11 +97,38 @@ build_digibyte_for_abi() {
   export LD="${TOOLCHAIN_BIN}/ld.lld"
 
   log "Configuring DigiByte Core build via CMake (${ABI}, android-${ANDROID_NDK_API_LEVEL})"
+  log "Using NDK: ${ANDROID_NDK_ROOT}"
+  log "Compiler CC: $CC"
+  log "Compiler CXX: $CXX"
+  if [[ -z "${ANDROID_NDK_ROOT}" || ! -d "${ANDROID_NDK_ROOT}" ]]; then
+    die "NDK path does not exist: ${ANDROID_NDK_ROOT}
+Tried common locations. Set ANDROID_NDK_HOME or ANDROID_NDK_ROOT to your NDK path."
+  fi
+  [[ -f "${ANDROID_NDK_ROOT}/build/cmake/android.toolchain.cmake" ]] || die "NDK toolchain not found at ${ANDROID_NDK_ROOT}/build/cmake/android.toolchain.cmake"
+  [[ -x "$CC" ]] || die "Compiler not found or not executable: $CC"
+  
+  # Force CMake to reconfigure (delete cache to avoid stale host compiler detection)
+  rm -rf "${CMAKE_BUILD_DIR}/CMakeCache.txt" "${CMAKE_BUILD_DIR}/CMakeFiles" 2>/dev/null || true
+
+  # Remove any stale DigiByte Core in-source build or android-prefix directories
+  # from previous host (x86) builds so they cannot pollute this cross-compile.
+  rm -rf "${CMAKE_BUILD_DIR}/core-build-${ABI}" || true
+  rm -rf "${CMAKE_BUILD_DIR}/android-prefix/${ABI}" || true
+  
+  # Pass NDK both via env var and CMake flag to ensure toolchain file can find it
+  # CRITICAL: Also pass CC/CXX/AR explicitly to override any host compiler detection
+  export ANDROID_NDK_HOME="${ANDROID_NDK_ROOT}"
   cmake -S "${ROOT_DIR}/android" -B "${CMAKE_BUILD_DIR}" \
     -G "${CMAKE_GENERATOR}" \
+    -DCMAKE_TOOLCHAIN_FILE="${ROOT_DIR}/android/toolchain-android.cmake" \
     -DANDROID_ABI="${ABI}" \
     -DANDROID_PLATFORM="android-${ANDROID_NDK_API_LEVEL}" \
-    -DCMAKE_TOOLCHAIN_FILE="${ROOT_DIR}/android/toolchain-android.cmake"
+    -DANDROID_NDK="${ANDROID_NDK_ROOT}" \
+    -DCMAKE_C_COMPILER="${CC}" \
+    -DCMAKE_CXX_COMPILER="${CXX}" \
+    -DCMAKE_AR="${AR}" \
+    -DCMAKE_RANLIB="${RANLIB}" \
+    -DCMAKE_LINKER="${LD}"
 
   log "Building digibyted for Android (${ABI})"
   cmake --build "${CMAKE_BUILD_DIR}" --target digibyted
@@ -85,30 +142,73 @@ build_digibyte_for_abi() {
   log "Staging native artifacts into ${JNI_TARGET_DIR}"
   mkdir -p "${JNI_TARGET_DIR}"
   shopt -s nullglob
-  for binary in "${BIN_DIR}"/*; do
-    cp "${binary}" "${JNI_TARGET_DIR}/"
-    log "Copied $(basename "${binary}")"
-  done
-  cp "${JNI_SO_SOURCE}" "${JNI_TARGET_DIR}/"
-  log "Copied $(basename "${JNI_SO_SOURCE}")"
-  if [[ -d "${LIB_DIR}" ]]; then
-    for so in "${LIB_DIR}"/*.so; do
-      cp "${so}" "${JNI_TARGET_DIR}/"
-      log "Copied $(basename "${so}")"
-    done
-  fi
-  shopt -u nullglob
 
-  log "digibyted staged to ${JNI_TARGET_DIR}."
-  log "Copying digibyted into APK assets at ${ASSET_BIN_DIR}"
-  mkdir -p "${ASSET_BIN_DIR}"
-  cp "${BIN_DIR}/digibyted" "${ASSET_BIN_DIR}/digibyted-${ABI}"
-  log "Copied digibyted-${ABI} asset"
-  if [[ -f "${BIN_DIR}/digibyte-cli" ]]; then
-    cp "${BIN_DIR}/digibyte-cli" "${ASSET_BIN_DIR}/digibyte-cli-${ABI}"
-    log "Copied digibyte-cli-${ABI} asset"
+  if [[ "${ABI}" == "arm64-v8a" ]]; then
+    # For arm64-v8a: use the cross-compiled android-prefix path and stage
+    # binaries with the names the Android app expects. Ensure executables have
+    # the correct permissions (install -m 755).
+    if [[ -f "${BIN_DIR}/digibyted" ]]; then
+      install -m 755 "${BIN_DIR}/digibyted" "${JNI_TARGET_DIR}/digibyted"
+    else
+      die "Expected digibyted at ${BIN_DIR}/digibyted but it is missing"
+    fi
+
+    # Copy JNI .so
+    install -m 644 "${JNI_SO_SOURCE}" "${JNI_TARGET_DIR}/$(basename "${JNI_SO_SOURCE}")"
+
+    # Copy any library .so files if present
+    if [[ -d "${LIB_DIR}" ]]; then
+      for so in "${LIB_DIR}"/*.so; do
+        install -m 644 "${so}" "${JNI_TARGET_DIR}/"
+      done
+    fi
+
+    shopt -u nullglob
+
+    # Print staged messages expected by the consumer
+    echo "[env-setup] digibyted staged to ${JNI_TARGET_DIR}."
+
+    # Stage into APK assets with new asset names (no -v8a suffix)
+    log "Copying digibyted into APK assets at ${ASSET_BIN_DIR}"
+    mkdir -p "${ASSET_BIN_DIR}"
+    install -m 755 "${BIN_DIR}/digibyted" "${ASSET_BIN_DIR}/digibyted-arm64"
+    echo "[env-setup] Copied digibyted-arm64 asset"
+
+    if [[ -f "${BIN_DIR}/digibyte-cli" ]]; then
+      install -m 755 "${BIN_DIR}/digibyte-cli" "${ASSET_BIN_DIR}/digibyte-cli-arm64"
+      echo "[env-setup] Copied digibyte-cli-arm64 asset"
+    else
+      echo "[env-setup] digibyte-cli not built for ${ABI}; CLI-driven features will be unavailable in the APK"
+    fi
+
   else
-    log "digibyte-cli not built for ${ABI}; CLI-driven features will be unavailable in the APK"
+    # Default behavior for other ABIs: copy everything into jniLibs and preserve executability
+    for binary in "${BIN_DIR}"/*; do
+      cp "${binary}" "${JNI_TARGET_DIR}/"
+      chmod 755 "${JNI_TARGET_DIR}/$(basename "${binary}")" || true
+      log "Copied $(basename "${binary}")"
+    done
+    cp "${JNI_SO_SOURCE}" "${JNI_TARGET_DIR}/"
+    log "Copied $(basename "${JNI_SO_SOURCE}")"
+    if [[ -d "${LIB_DIR}" ]]; then
+      for so in "${LIB_DIR}"/*.so; do
+        cp "${so}" "${JNI_TARGET_DIR}/"
+        log "Copied $(basename "${so}")"
+      done
+    fi
+    shopt -u nullglob
+
+    log "digibyted staged to ${JNI_TARGET_DIR}."
+    log "Copying digibyted into APK assets at ${ASSET_BIN_DIR}"
+    mkdir -p "${ASSET_BIN_DIR}"
+    cp "${BIN_DIR}/digibyted" "${ASSET_BIN_DIR}/digibyted-${ABI}"
+    log "Copied digibyted-${ABI} asset"
+    if [[ -f "${BIN_DIR}/digibyte-cli" ]]; then
+      cp "${BIN_DIR}/digibyte-cli" "${ASSET_BIN_DIR}/digibyte-cli-${ABI}"
+      log "Copied digibyte-cli-${ABI} asset"
+    else
+      log "digibyte-cli not built for ${ABI}; CLI-driven features will be unavailable in the APK"
+    fi
   fi
 }
 
@@ -125,7 +225,9 @@ if [[ -n "${ABI:-}" ]]; then
   fi
   log "Building requested ABI: ${abis_to_build[*]}"
 else
-  abis_to_build=("${SUPPORTED_ABIS[@]}")
+  # Default: build only arm64-v8a (sufficient for APK and avoids NDK compatibility issues with older ABIs)
+  abis_to_build=("arm64-v8a")
+  log "Building default ABI: ${abis_to_build[*]} (set ABI environment variable to build others)"
 fi
 
 for abi in "${abis_to_build[@]}"; do

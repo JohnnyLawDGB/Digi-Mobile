@@ -23,6 +23,24 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
+      - name: Set up CMake and Ninja
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq cmake ninja-build
+
+      - name: Install additional build tools
+        run: |
+          sudo apt-get install -y -qq curl pkg-config autoconf
+
+      - name: Set up DigiByte Core
+        run: ./scripts/setup-core.sh
+
+      - name: Build DigiByte daemon for Android
+        run: ./scripts/build-android.sh
+
+      - name: Prepare Gradle wrapper JAR
+        run: ./scripts/prepare-gradle-wrapper.sh
+
       - name: Build debug APK
         uses: gradle/gradle-build-action@v3
         with:
