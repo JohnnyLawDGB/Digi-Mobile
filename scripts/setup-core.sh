@@ -30,6 +30,36 @@ log "Using DigiByte Core directory: ${CORE_DIR}"
 log "Using DigiByte Core remote: ${CORE_REMOTE_URL}"
 log "Target DigiByte Core ref: ${CORE_REF}"
 
+apply_android_patches() {
+  local patch_dir="$1"
+  local core_dir="$2"
+
+  if [[ ! -d "${patch_dir}" ]]; then
+    return
+  fi
+
+  shopt -s nullglob
+  local patches=("${patch_dir}"/*.patch)
+  shopt -u nullglob
+
+  if [[ ${#patches[@]} -eq 0 ]]; then
+    return
+  fi
+
+  log "Applying Android-specific patches to DigiByte Core"
+  for patch in "${patches[@]}"; do
+    if git -C "${core_dir}" apply --reverse --check "$patch" >/dev/null 2>&1; then
+      log "  Skipping $(basename "$patch") (already applied)"
+      continue
+    fi
+
+    log "  Applying $(basename "$patch")"
+    if ! git -C "${core_dir}" apply "$patch"; then
+      die "Failed to apply $(basename "$patch")"
+    fi
+  done
+}
+
 if [[ ! -d "${CORE_DIR}" ]]; then
   log "${CORE_DIR}/ is missing. Creating a fresh DigiByte Core repo."
   mkdir -p "${CORE_DIR}" || die "Failed to create ${CORE_DIR}/"
@@ -69,6 +99,8 @@ else
   echo "[Digi-Mobile] Hint: check https://github.com/DigiByte-Core/digibyte/tags to confirm tag names." >&2
   exit 1
 fi
+
+apply_android_patches "${ROOT_DIR}/android/patches" "${CORE_DIR}"
 
 SHORT_COMMIT="$(git -C "${CORE_DIR}" rev-parse --short HEAD)" || die "Failed to resolve checked-out commit"
 
