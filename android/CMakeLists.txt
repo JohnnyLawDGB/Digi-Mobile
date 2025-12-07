@@ -76,7 +76,7 @@ endif()
 # Common flags aim for small binaries; GUI and bench/test targets are disabled to
 # shorten Android build times.
 set(DGB_COMMON_CFLAGS "-fPIC -Os -ffunction-sections -fdata-sections")
-set(DGB_COMMON_LDFLAGS "-Wl,--gc-sections")
+set(DGB_COMMON_LDFLAGS "-static-libstdc++ -Wl,--build-id=sha1 -Wl,--no-rosegment -Wl,--fatal-warnings -Wl,--gc-sections -Wl,--no-undefined -Qunused-arguments")
 
 option(DGB_ENABLE_LTO "Enable LTO for DigiByte Core" OFF)
 if(DGB_ENABLE_LTO)
@@ -92,46 +92,78 @@ endif()
 
 set(DGB_EXTRA_CONFIGURE_ARGS "" CACHE STRING "Additional configure flags passed to DigiByte Core")
 
-# CRITICAL: Prioritize environment variables (set by build-android.sh) over CMake detected compilers
-# to ensure we always use the NDK cross-compiler (aarch64-clang), not the host compiler (gcc/clang).
-set(DGB_CC "$ENV{CC}")
-if(DGB_CC STREQUAL "" AND NOT CMAKE_C_COMPILER STREQUAL "")
-  set(DGB_CC "${CMAKE_C_COMPILER}")
-elseif(DGB_CC STREQUAL "")
-  message(FATAL_ERROR "CC environment variable not set and CMAKE_C_COMPILER is empty. This indicates the NDK toolchain was not properly loaded or build-android.sh did not set CC. Check your NDK path and CMake configuration.")
+# Prefer explicit Android NDK-provided target drivers to avoid mixing host
+# toolchains during the Autotools/libtool link stage.
+set(DGB_ANDROID_NDK_ROOT "")
+if(DEFINED ENV{ANDROID_NDK_HOME} AND NOT "$ENV{ANDROID_NDK_HOME}" STREQUAL "")
+  set(DGB_ANDROID_NDK_ROOT "$ENV{ANDROID_NDK_HOME}")
+elseif(DEFINED ANDROID_NDK AND NOT "${ANDROID_NDK}" STREQUAL "")
+  set(DGB_ANDROID_NDK_ROOT "${ANDROID_NDK}")
+elseif(DEFINED CMAKE_ANDROID_NDK AND NOT "${CMAKE_ANDROID_NDK}" STREQUAL "")
+  set(DGB_ANDROID_NDK_ROOT "${CMAKE_ANDROID_NDK}")
 endif()
 
-set(DGB_CXX "$ENV{CXX}")
-if(DGB_CXX STREQUAL "" AND NOT CMAKE_CXX_COMPILER STREQUAL "")
-  set(DGB_CXX "${CMAKE_CXX_COMPILER}")
-elseif(DGB_CXX STREQUAL "")
-  message(FATAL_ERROR "CXX environment variable not set and CMAKE_CXX_COMPILER is empty. Ensure build-android.sh passes CXX env var correctly.")
+set(DGB_ANDROID_API_LEVEL "${ANDROID_PLATFORM}")
+string(REGEX REPLACE "^android-" "" DGB_ANDROID_API_LEVEL "${DGB_ANDROID_API_LEVEL}")
+
+set(DGB_DEFAULT_TOOLCHAIN_BIN "")
+if(NOT DGB_ANDROID_NDK_ROOT STREQUAL "")
+  set(DGB_DEFAULT_TOOLCHAIN_BIN "${DGB_ANDROID_NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64/bin")
+  if(NOT EXISTS "${DGB_DEFAULT_TOOLCHAIN_BIN}")
+    set(DGB_DEFAULT_TOOLCHAIN_BIN "")
+  endif()
 endif()
 
-set(DGB_AR "$ENV{AR}")
+# CRITICAL: Prefer explicit Android NDK target drivers (aarch64-linux-androidXX-clang)
+# to avoid libtool falling back to a host x86_64 linker when LDFLAGS omits --target.
+set(DGB_CC "")
+set(DGB_CXX "")
+set(DGB_AR "")
+set(DGB_RANLIB "")
+if(NOT DGB_DEFAULT_TOOLCHAIN_BIN STREQUAL "")
+  set(_dgb_target_cc "${DGB_DEFAULT_TOOLCHAIN_BIN}/${DGB_HOST_TRIPLE}${DGB_ANDROID_API_LEVEL}-clang")
+  set(_dgb_target_cxx "${DGB_DEFAULT_TOOLCHAIN_BIN}/${DGB_HOST_TRIPLE}${DGB_ANDROID_API_LEVEL}-clang++")
+  if(EXISTS "${_dgb_target_cc}" AND EXISTS "${_dgb_target_cxx}")
+    set(DGB_CC "${_dgb_target_cc}")
+    set(DGB_CXX "${_dgb_target_cxx}")
+    set(DGB_AR "${DGB_DEFAULT_TOOLCHAIN_BIN}/llvm-ar")
+    set(DGB_RANLIB "${DGB_DEFAULT_TOOLCHAIN_BIN}/llvm-ranlib")
+  endif()
+endif()
+
+if(DGB_CC STREQUAL "")
+  set(DGB_CC "$ENV{CC}")
+  if(DGB_CC STREQUAL "" AND NOT CMAKE_C_COMPILER STREQUAL "")
+    set(DGB_CC "${CMAKE_C_COMPILER}")
+  elseif(DGB_CC STREQUAL "")
+    message(FATAL_ERROR "Unable to determine CC. Provide ANDROID_NDK_HOME or set CC explicitly.")
+  endif()
+endif()
+
+if(DGB_CXX STREQUAL "")
+  set(DGB_CXX "$ENV{CXX}")
+  if(DGB_CXX STREQUAL "" AND NOT CMAKE_CXX_COMPILER STREQUAL "")
+    set(DGB_CXX "${CMAKE_CXX_COMPILER}")
+  elseif(DGB_CXX STREQUAL "")
+    message(FATAL_ERROR "Unable to determine CXX. Provide ANDROID_NDK_HOME or set CXX explicitly.")
+  endif()
+endif()
+
 if(DGB_AR STREQUAL "")
-  if(NOT CMAKE_AR STREQUAL "")
+  set(DGB_AR "$ENV{AR}")
+  if(DGB_AR STREQUAL "" AND NOT CMAKE_AR STREQUAL "")
     set(DGB_AR "${CMAKE_AR}")
-  else()
+  elseif(DGB_AR STREQUAL "")
     message(FATAL_ERROR "AR environment variable not set and CMAKE_AR is empty.")
   endif()
 endif()
 
-set(DGB_RANLIB "$ENV{RANLIB}")
 if(DGB_RANLIB STREQUAL "")
-  if(NOT CMAKE_RANLIB STREQUAL "")
+  set(DGB_RANLIB "$ENV{RANLIB}")
+  if(DGB_RANLIB STREQUAL "" AND NOT CMAKE_RANLIB STREQUAL "")
     set(DGB_RANLIB "${CMAKE_RANLIB}")
-  else()
+  elseif(DGB_RANLIB STREQUAL "")
     message(FATAL_ERROR "RANLIB environment variable not set and CMAKE_RANLIB is empty.")
-  endif()
-endif()
-
-set(DGB_LD "$ENV{LD}")
-if(DGB_LD STREQUAL "")
-  if(NOT CMAKE_LINKER STREQUAL "")
-    set(DGB_LD "${CMAKE_LINKER}")
-  else()
-    message(FATAL_ERROR "LD environment variable not set and CMAKE_LINKER is empty.")
   endif()
 endif()
 
@@ -147,28 +179,31 @@ if(NOT DGB_CC MATCHES "aarch64|armv7a" AND NOT DGB_CC MATCHES "clang")
   message(WARNING "WARNING: DGB_CC does not appear to be an ARM Android cross-compiler: ${DGB_CC}")
 endif()
 
+string(REGEX REPLACE "(^| )-D_FORTIFY_SOURCE=2($| )" " " DGB_CORE_CFLAGS "${CMAKE_C_FLAGS} ${DGB_COMMON_CFLAGS}")
+string(REGEX REPLACE "(^| )-D_FORTIFY_SOURCE=2($| )" " " DGB_CORE_CXXFLAGS "${CMAKE_CXX_FLAGS} ${DGB_COMMON_CFLAGS}")
+string(REGEX REPLACE "(^| )--target=[^ ]+" " " DGB_CORE_CFLAGS "${DGB_CORE_CFLAGS}")
+string(REGEX REPLACE "(^| )--target=[^ ]+" " " DGB_CORE_CXXFLAGS "${DGB_CORE_CXXFLAGS}")
+string(REGEX REPLACE "(^| )--sysroot=[^ ]+" " " DGB_CORE_CFLAGS "${DGB_CORE_CFLAGS}")
+string(REGEX REPLACE "(^| )--sysroot=[^ ]+" " " DGB_CORE_CXXFLAGS "${DGB_CORE_CXXFLAGS}")
+string(STRIP "${DGB_CORE_CFLAGS}" DGB_CORE_CFLAGS)
+string(STRIP "${DGB_CORE_CXXFLAGS}" DGB_CORE_CXXFLAGS)
+
 # Log the actual compilers being used for debugging
 message(STATUS "[Digi-Mobile] DGB_CC = ${DGB_CC}")
 message(STATUS "[Digi-Mobile] DGB_CXX = ${DGB_CXX}")
 message(STATUS "[Digi-Mobile] DGB_HOST_TRIPLE = ${DGB_HOST_TRIPLE}")
 message(STATUS "[Digi-Mobile] DGB_CORE_CFLAGS = ${DGB_CORE_CFLAGS}")
 
-string(REGEX REPLACE "(^| )-D_FORTIFY_SOURCE=2($| )" " " DGB_CORE_CFLAGS "${CMAKE_C_FLAGS} ${DGB_COMMON_CFLAGS}")
-string(REGEX REPLACE "(^| )-D_FORTIFY_SOURCE=2($| )" " " DGB_CORE_CXXFLAGS "${CMAKE_CXX_FLAGS} ${DGB_COMMON_CFLAGS}")
-string(STRIP "${DGB_CORE_CFLAGS}" DGB_CORE_CFLAGS)
-string(STRIP "${DGB_CORE_CXXFLAGS}" DGB_CORE_CXXFLAGS)
-
-set(DGB_TOOLCHAIN_ENV
-  "CC=${DGB_CC}"
-  "CXX=${DGB_CXX}"
-  # Force libtool to link via the C++ driver (which already targets aarch64
-  # via the NDK triple) instead of falling back to the host ld.
-  "CXXLD=${DGB_CXX}"
-  "AR=${DGB_AR}"
-  "RANLIB=${DGB_RANLIB}"
-  "LD=${DGB_LD}"
-  "STRIP=${DGB_TOOLCHAIN_BIN}/llvm-strip"
-  "PATH=${DGB_TOOLCHAIN_BIN}:$ENV{PATH}"
+  set(DGB_TOOLCHAIN_ENV
+    "CC=${DGB_CC}"
+    "CXX=${DGB_CXX}"
+    # Force libtool to link via the C++ driver (which already targets aarch64
+    # via the NDK triple) instead of falling back to the host ld.
+    "CXXLD=${DGB_CXX}"
+    "AR=${DGB_AR}"
+    "RANLIB=${DGB_RANLIB}"
+    "STRIP=${DGB_TOOLCHAIN_BIN}/llvm-strip"
+    "PATH=${DGB_TOOLCHAIN_BIN}:$ENV{PATH}"
   # When building for Android we rely on the depends/ tree to provide
   # cross-compiled libraries (libevent, etc.). Point pkg-config at the
   # depends package dirs so `configure` can locate them instead of searching
