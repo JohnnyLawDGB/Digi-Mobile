@@ -227,7 +227,7 @@ bool ContainsSpentInput(const CTransaction& tx, const CCoinsViewCache& inputs) n
     return false;
 }
 
-#if (defined(__GLIBC__) || defined(__FreeBSD__)) && !defined(__ANDROID__) && !defined(__BIONIC__)
+#if (defined(__GLIBC__) || defined(__FreeBSD__)) && !defined(__ANDROID__) && !defined(__BIONIC__) && !defined(ANDROID)
 FILE* FuzzedFileProvider::open()
 {
     SetFuzzedErrNo(m_fuzzed_data_provider);
@@ -255,7 +255,7 @@ FILE* FuzzedFileProvider::open()
         [&] {
             mode = "a+";
         });
-#if defined _GNU_SOURCE && (defined(__linux__) || defined(__FreeBSD__)) && !defined(__ANDROID__) && !defined(__BIONIC__)
+#if defined _GNU_SOURCE && (defined(__linux__) || defined(__FreeBSD__)) && !defined(__ANDROID__) && !defined(__BIONIC__) && !defined(ANDROID)
     const cookie_io_functions_t io_hooks = {
         FuzzedFileProvider::read,
         FuzzedFileProvider::write,
