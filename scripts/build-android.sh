@@ -95,6 +95,7 @@ build_digibyte_for_abi() {
   export AR="${TOOLCHAIN_BIN}/llvm-ar"
   export RANLIB="${TOOLCHAIN_BIN}/llvm-ranlib"
   export LD="${TOOLCHAIN_BIN}/ld.lld"
+  export PATH="${TOOLCHAIN_BIN}:${PATH}"
 
   # Derive the NDK sysroot explicitly so we can feed it to both CMake and
   # Autotools. This prevents the toolchain from silently falling back to the
