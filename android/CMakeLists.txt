@@ -125,8 +125,12 @@ set(DGB_CONFIGURE_ENV
   "AR=${DGB_AR}"
   "RANLIB=${DGB_RANLIB}"
   "LD=${DGB_LD}"
-  "PKG_CONFIG_LIBDIR="
-  "PKG_CONFIG_PATH="
+  # When building for Android we rely on the depends/ tree to provide
+  # cross-compiled libraries (libevent, etc.). Point pkg-config at the
+  # depends package dirs so `configure` can locate them instead of searching
+  # the host system.
+  "PKG_CONFIG_LIBDIR=${DGB_DEPENDS_DIR}/${DGB_HOST_TRIPLE}/lib/pkgconfig:${DGB_DEPENDS_DIR}/${DGB_HOST_TRIPLE}/share/pkgconfig"
+  "PKG_CONFIG_PATH=${DGB_DEPENDS_DIR}/${DGB_HOST_TRIPLE}/lib/pkgconfig:${DGB_DEPENDS_DIR}/${DGB_HOST_TRIPLE}/share/pkgconfig"
   "CFLAGS=${DGB_CORE_CFLAGS}"
   "CXXFLAGS=${DGB_CORE_CXXFLAGS}"
   "LDFLAGS=${CMAKE_EXE_LINKER_FLAGS} ${DGB_COMMON_LDFLAGS}"
@@ -190,13 +194,15 @@ if(EXISTS "${DIGIBYTE_CORE_SOURCE_DIR}/src")
       "CC=${DGB_CC}" "CXX=${DGB_CXX}" "AR=${DGB_AR}" "RANLIB=${DGB_RANLIB}" "LD=${DGB_LD}"
       "CFLAGS=${DGB_CORE_CFLAGS}" "CXXFLAGS=${DGB_CORE_CXXFLAGS}"
       "LDFLAGS=${CMAKE_EXE_LINKER_FLAGS} ${DGB_COMMON_LDFLAGS}"
-      "PKG_CONFIG_LIBDIR=" "PKG_CONFIG_PATH="
+      "PKG_CONFIG_LIBDIR=${DGB_DEPENDS_DIR}/${DGB_HOST_TRIPLE}/lib/pkgconfig:${DGB_DEPENDS_DIR}/${DGB_HOST_TRIPLE}/share/pkgconfig"
+      "PKG_CONFIG_PATH=${DGB_DEPENDS_DIR}/${DGB_HOST_TRIPLE}/lib/pkgconfig:${DGB_DEPENDS_DIR}/${DGB_HOST_TRIPLE}/share/pkgconfig"
       ${DIGIBYTE_CORE_SOURCE_DIR}/autogen.sh
       COMMAND ${CMAKE_COMMAND} -E env
       "CC=${DGB_CC}" "CXX=${DGB_CXX}" "AR=${DGB_AR}" "RANLIB=${DGB_RANLIB}" "LD=${DGB_LD}"
       "CFLAGS=${DGB_CORE_CFLAGS}" "CXXFLAGS=${DGB_CORE_CXXFLAGS}"
       "LDFLAGS=${CMAKE_EXE_LINKER_FLAGS} ${DGB_COMMON_LDFLAGS}"
-      "PKG_CONFIG_LIBDIR=" "PKG_CONFIG_PATH="
+      "PKG_CONFIG_LIBDIR=${DGB_DEPENDS_DIR}/${DGB_HOST_TRIPLE}/lib/pkgconfig:${DGB_DEPENDS_DIR}/${DGB_HOST_TRIPLE}/share/pkgconfig"
+      "PKG_CONFIG_PATH=${DGB_DEPENDS_DIR}/${DGB_HOST_TRIPLE}/lib/pkgconfig:${DGB_DEPENDS_DIR}/${DGB_HOST_TRIPLE}/share/pkgconfig"
       ${DIGIBYTE_CORE_SOURCE_DIR}/configure ${DGB_CONFIGURE_ARGS}
     BUILD_COMMAND ${CMAKE_COMMAND} -E env
       "CC=${DGB_CC}" "CXX=${DGB_CXX}" "AR=${DGB_AR}" "RANLIB=${DGB_RANLIB}" "LD=${DGB_LD}"
