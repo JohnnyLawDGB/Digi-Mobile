@@ -41,6 +41,17 @@ endif()
 
 set(DGB_DEPENDS_CONFIG_SITE "${DGB_DEPENDS_DIR}/${DGB_HOST_TRIPLE}/share/config.site")
 
+# When CMAKE_SYSROOT is not provided, attempt to infer it from the Android NDK
+# pointed to by ANDROID_NDK or ANDROID_NDK_HOME. Autotools' configure will then
+# receive an explicit --with-sysroot flag, preventing accidental host sysroot
+# usage that can result in x86_64 outputs.
+if((NOT DEFINED CMAKE_SYSROOT OR CMAKE_SYSROOT STREQUAL "") AND DEFINED ENV{ANDROID_NDK_HOME})
+  set(_ndk_sysroot "$ENV{ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/sysroot")
+  if(EXISTS "${_ndk_sysroot}")
+    set(CMAKE_SYSROOT "${_ndk_sysroot}" CACHE PATH "Android sysroot" FORCE)
+  endif()
+endif()
+
 # Detect the build machine triple for explicit --build flag when cross-compiling.
 # Prefer config.guess from the upstream tree; fall back to CMake's host values.
 set(DGB_BUILD_TRIPLE "")

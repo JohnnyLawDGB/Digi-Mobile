@@ -96,6 +96,12 @@ build_digibyte_for_abi() {
   export RANLIB="${TOOLCHAIN_BIN}/llvm-ranlib"
   export LD="${TOOLCHAIN_BIN}/ld.lld"
 
+  # Derive the NDK sysroot explicitly so we can feed it to both CMake and
+  # Autotools. This prevents the toolchain from silently falling back to the
+  # host sysroot when CMake caches get stale.
+  SYSROOT="${ANDROID_NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64/sysroot"
+  [[ -d "${SYSROOT}" ]] || die "NDK sysroot missing at ${SYSROOT}"
+
   log "Configuring DigiByte Core build via CMake (${ABI}, android-${ANDROID_NDK_API_LEVEL})"
   log "Using NDK: ${ANDROID_NDK_ROOT}"
   log "Compiler CC: $CC"
@@ -114,7 +120,7 @@ Tried common locations. Set ANDROID_NDK_HOME or ANDROID_NDK_ROOT to your NDK pat
   # from previous host (x86) builds so they cannot pollute this cross-compile.
   rm -rf "${CMAKE_BUILD_DIR}/core-build-${ABI}" || true
   rm -rf "${CMAKE_BUILD_DIR}/android-prefix/${ABI}" || true
-  
+
   # Pass NDK both via env var and CMake flag to ensure toolchain file can find it
   # CRITICAL: Also pass CC/CXX/AR explicitly to override any host compiler detection
   export ANDROID_NDK_HOME="${ANDROID_NDK_ROOT}"
@@ -124,6 +130,9 @@ Tried common locations. Set ANDROID_NDK_HOME or ANDROID_NDK_ROOT to your NDK pat
     -DANDROID_ABI="${ABI}" \
     -DANDROID_PLATFORM="android-${ANDROID_NDK_API_LEVEL}" \
     -DANDROID_NDK="${ANDROID_NDK_ROOT}" \
+    -DCMAKE_SYSROOT="${SYSROOT}" \
+    -DCMAKE_C_FLAGS="--target=${ANDROID_TRIPLE}${ANDROID_API_LEVEL} --sysroot=${SYSROOT}" \
+    -DCMAKE_CXX_FLAGS="--target=${ANDROID_TRIPLE}${ANDROID_API_LEVEL} --sysroot=${SYSROOT}" \
     -DCMAKE_C_COMPILER="${CC}" \
     -DCMAKE_CXX_COMPILER="${CXX}" \
     -DCMAKE_AR="${AR}" \
