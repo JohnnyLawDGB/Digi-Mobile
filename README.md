@@ -53,6 +53,8 @@ Digi-Mobile packages DigiByte Core as a pruned, Android-friendly full node build
    - [`android/README-ANDROID-BUILD.md`](android/README-ANDROID-BUILD.md)
    - [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md)
 
+If you hit the NDK fuzz harness build failure about `cookie_io_functions_t`, use the condensed guide in [`docs/ANDROID-FUZZ-BUILD-FIX.md`](docs/ANDROID-FUZZ-BUILD-FIX.md) to apply the one-line guard patch and rebuild.
+
 Digi-Mobile currently wraps DigiByte Core v8.26.x (default tag `v8.26.1`). See [`docs/CORE-VERSIONING.md`](docs/CORE-VERSIONING.md) for details.
 
 ## Design Principles
