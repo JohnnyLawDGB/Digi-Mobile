@@ -255,7 +255,10 @@ FILE* FuzzedFileProvider::open()
         [&] {
             mode = "a+";
         });
-#if defined _GNU_SOURCE && (defined(__linux__) || defined(__FreeBSD__)) && !defined(__ANDROID__) && !defined(__BIONIC__) && !defined(ANDROID)
+    // cookie_io_functions_t / fopencookie are glibc and FreeBSD extensions
+    // and are not available in Android's bionic libc. Tighten the guard to
+    // exclude Android entirely so cross-compiles never see these symbols.
+#if defined _GNU_SOURCE && ((defined(__GLIBC__) && !defined(__ANDROID__) && !defined(__BIONIC__) && !defined(ANDROID)) || defined(__FreeBSD__))
     const cookie_io_functions_t io_hooks = {
         FuzzedFileProvider::read,
         FuzzedFileProvider::write,
