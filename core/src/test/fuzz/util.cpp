@@ -230,6 +230,11 @@ bool ContainsSpentInput(const CTransaction& tx, const CCoinsViewCache& inputs) n
 #if (defined(__GLIBC__) || defined(__FreeBSD__)) && !defined(__ANDROID__) && !defined(__BIONIC__) && !defined(ANDROID)
 FILE* FuzzedFileProvider::open()
 {
+#if defined(__ANDROID__)
+    // Android's bionic libc lacks cookie_io_functions_t / fopencookie.
+    // This fuzz-only helper simply opts out when targeting Android.
+    return nullptr;
+#else
     SetFuzzedErrNo(m_fuzzed_data_provider);
     if (m_fuzzed_data_provider.ConsumeBool()) {
         return nullptr;
@@ -256,9 +261,8 @@ FILE* FuzzedFileProvider::open()
             mode = "a+";
         });
     // cookie_io_functions_t / fopencookie are glibc and FreeBSD extensions
-    // and are not available in Android's bionic libc. Tighten the guard to
-    // exclude Android entirely so cross-compiles never see these symbols.
-#if defined _GNU_SOURCE && ((defined(__GLIBC__) && !defined(__ANDROID__) && !defined(__BIONIC__) && !defined(ANDROID)) || defined(__FreeBSD__))
+    // and are not available in Android's bionic libc.
+#if defined _GNU_SOURCE && (defined(__linux__) || defined(__FreeBSD__))
     const cookie_io_functions_t io_hooks = {
         FuzzedFileProvider::read,
         FuzzedFileProvider::write,
@@ -270,6 +274,7 @@ FILE* FuzzedFileProvider::open()
     (void)mode;
     return nullptr;
 #endif
+#endif // defined(__ANDROID__)
 }
 
 ssize_t FuzzedFileProvider::read(void* cookie, char* buf, size_t size)

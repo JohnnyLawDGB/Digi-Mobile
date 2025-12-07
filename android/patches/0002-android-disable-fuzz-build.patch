@@ -1,0 +1,90 @@
+diff --git a/configure.ac b/configure.ac
+index 174109c..c9bd929 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -50,6 +50,17 @@ fi
+ 
+ AC_CANONICAL_HOST
+ 
++dnl Detect Android host to gate optional targets that rely on glibc-only APIs
++case "$host_os" in
++  *android*)
++    android_host=yes
++    ;;
++  *)
++    android_host=no
++    ;;
++esac
++AC_SUBST(android_host)
++
+ AH_TOP([#ifndef DIGIBYTE_CONFIG_H])
+ AH_TOP([#define DIGIBYTE_CONFIG_H])
+ AH_BOTTOM([#endif //DIGIBYTE_CONFIG_H])
+@@ -1842,7 +1853,7 @@ AM_CONDITIONAL([ENABLE_WALLET], [test "$enable_wallet" = "yes"])
+ AM_CONDITIONAL([USE_SQLITE], [test "$use_sqlite" = "yes"])
+ AM_CONDITIONAL([USE_BDB], [test "$use_bdb" = "yes"])
+ AM_CONDITIONAL([ENABLE_TESTS], [test "$BUILD_TEST" = "yes"])
+-AM_CONDITIONAL([ENABLE_FUZZ], [test "$enable_fuzz" = "yes"])
++AM_CONDITIONAL([ENABLE_FUZZ], [test "$enable_fuzz" = "yes" -a "$android_host" = "no" -a "$cross_compiling" = "no"])
+ AM_CONDITIONAL([ENABLE_FUZZ_BINARY], [test "$enable_fuzz_binary" = "yes"])
+ AM_CONDITIONAL([ENABLE_QT], [test "$digibyte_enable_qt" = "yes"])
+ AM_CONDITIONAL([ENABLE_QT_TESTS], [test "$BUILD_TEST_QT" = "yes"])
+diff --git a/src/Makefile.am b/src/Makefile.am
+index ddbeb20..4db1852 100644
+--- a/src/Makefile.am
++++ b/src/Makefile.am
+@@ -1171,7 +1171,9 @@ include Makefile.crc32c.include
+ include Makefile.leveldb.include
+ 
+ include Makefile.test_util.include
++if ENABLE_FUZZ
+ include Makefile.test_fuzz.include
++endif
+ 
+ include Makefile.test.include
+ 
+diff --git a/src/Makefile.test_fuzz.include b/src/Makefile.test_fuzz.include
+index 941c3e7..5c7cb4e 100644
+--- a/src/Makefile.test_fuzz.include
++++ b/src/Makefile.test_fuzz.include
+@@ -2,6 +2,7 @@
+ # Distributed under the MIT software license, see the accompanying
+ # file COPYING or http://www.opensource.org/licenses/mit-license.php.
+ 
++if ENABLE_FUZZ
+ LIBTEST_FUZZ=libtest_fuzz.a
+ 
+ EXTRA_LIBRARIES += \
+@@ -21,4 +22,5 @@ libtest_fuzz_a_SOURCES = \
+   test/fuzz/util.cpp \
+   test/fuzz/util/mempool.cpp \
+   test/fuzz/util/net.cpp \
+-  $(TEST_FUZZ_H)
+\ No newline at end of file
++  $(TEST_FUZZ_H)
++endif
+\ No newline at end of file
+diff --git a/src/test/fuzz/util.cpp b/src/test/fuzz/util.cpp
+index 32b5ad3..eaede8e 100644
+--- a/src/test/fuzz/util.cpp
++++ b/src/test/fuzz/util.cpp
+@@ -229,6 +229,11 @@ bool ContainsSpentInput(const CTransaction& tx, const CCoinsViewCache& inputs) n
+ 
+ FILE* FuzzedFileProvider::open()
+ {
++#if defined(__ANDROID__)
++    // Android's bionic libc lacks cookie_io_functions_t / fopencookie. This
++    // fuzz-only helper simply opts out on Android targets.
++    return nullptr;
++#else
+     SetFuzzedErrNo(m_fuzzed_data_provider);
+     if (m_fuzzed_data_provider.ConsumeBool()) {
+         return nullptr;
+@@ -266,6 +271,7 @@ FILE* FuzzedFileProvider::open()
+     (void)mode;
+     return nullptr;
+ #endif
++#endif // defined(__ANDROID__)
+ }
+ 
+ ssize_t FuzzedFileProvider::read(void* cookie, char* buf, size_t size)
