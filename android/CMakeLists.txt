@@ -161,6 +161,9 @@ string(STRIP "${DGB_CORE_CXXFLAGS}" DGB_CORE_CXXFLAGS)
 set(DGB_TOOLCHAIN_ENV
   "CC=${DGB_CC}"
   "CXX=${DGB_CXX}"
+  # Force libtool to link via the C++ driver (which already targets aarch64
+  # via the NDK triple) instead of falling back to the host ld.
+  "CXXLD=${DGB_CXX}"
   "AR=${DGB_AR}"
   "RANLIB=${DGB_RANLIB}"
   "LD=${DGB_LD}"

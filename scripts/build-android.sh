@@ -94,7 +94,21 @@ build_digibyte_for_abi() {
   export CXX="${TOOLCHAIN_BIN}/${ANDROID_TRIPLE}${ANDROID_API_LEVEL}-clang++"
   export AR="${TOOLCHAIN_BIN}/llvm-ar"
   export RANLIB="${TOOLCHAIN_BIN}/llvm-ranlib"
-  export LD="${TOOLCHAIN_BIN}/ld.lld"
+  # ld.lld defaults to the host architecture when invoked directly. To avoid
+  # silently producing x86_64 objects while targeting Android/aarch64, wrap it
+  # with an explicit --target flag and use the wrapper for both CMake and the
+  # Autotools/depends build.
+  mkdir -p "${CMAKE_BUILD_DIR}" || true
+
+  LD_WRAPPER="${CMAKE_BUILD_DIR}/ld-${ANDROID_TRIPLE}.sh"
+  cat >"${LD_WRAPPER}" <<EOF
+#!/usr/bin/env bash
+exec "${TOOLCHAIN_BIN}/ld.lld" --target=${ANDROID_TRIPLE}${ANDROID_API_LEVEL} "$@"
+EOF
+  chmod +x "${LD_WRAPPER}"
+
+  export LD="${LD_WRAPPER}"
+  export CXXLD="${CXX}"
   export PATH="${TOOLCHAIN_BIN}:${PATH}"
 
   # Derive the NDK sysroot explicitly so we can feed it to both CMake and
@@ -121,6 +135,13 @@ Tried common locations. Set ANDROID_NDK_HOME or ANDROID_NDK_ROOT to your NDK pat
   # from previous host (x86) builds so they cannot pollute this cross-compile.
   rm -rf "${CMAKE_BUILD_DIR}/core-build-${ABI}" || true
   rm -rf "${CMAKE_BUILD_DIR}/android-prefix/${ABI}" || true
+
+  # Also drop any prior depends outputs for this host to guarantee the
+  # libraries under core/depends/${ANDROID_TRIPLE} are rebuilt as aarch64/ARM
+  # rather than reusing accidentally produced x86 artifacts.
+  rm -rf "${ROOT_DIR}/core/depends/${ANDROID_TRIPLE}" \
+         "${ROOT_DIR}/core/depends/built/${ANDROID_TRIPLE}" \
+         "${ROOT_DIR}/core/depends/work/${ANDROID_TRIPLE}" 2>/dev/null || true
 
   # Pass NDK both via env var and CMake flag to ensure toolchain file can find it
   # CRITICAL: Also pass CC/CXX/AR explicitly to override any host compiler detection
