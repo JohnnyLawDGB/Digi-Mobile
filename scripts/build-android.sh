@@ -83,13 +83,19 @@ build_digibyte_for_abi() {
   rm -rf "${CMAKE_BUILD_DIR}/android-prefix/${ABI}" || true
   
   # Pass NDK both via env var and CMake flag to ensure toolchain file can find it
+  # CRITICAL: Also pass CC/CXX/AR explicitly to override any host compiler detection
   export ANDROID_NDK_HOME="${ANDROID_NDK_ROOT}"
   cmake -S "${ROOT_DIR}/android" -B "${CMAKE_BUILD_DIR}" \
     -G "${CMAKE_GENERATOR}" \
+    -DCMAKE_TOOLCHAIN_FILE="${ROOT_DIR}/android/toolchain-android.cmake" \
     -DANDROID_ABI="${ABI}" \
     -DANDROID_PLATFORM="android-${ANDROID_NDK_API_LEVEL}" \
     -DANDROID_NDK="${ANDROID_NDK_ROOT}" \
-    -DCMAKE_TOOLCHAIN_FILE="${ROOT_DIR}/android/toolchain-android.cmake"
+    -DCMAKE_C_COMPILER="${CC}" \
+    -DCMAKE_CXX_COMPILER="${CXX}" \
+    -DCMAKE_AR="${AR}" \
+    -DCMAKE_RANLIB="${RANLIB}" \
+    -DCMAKE_LINKER="${LD}"
 
   log "Building digibyted for Android (${ABI})"
   cmake --build "${CMAKE_BUILD_DIR}" --target digibyted

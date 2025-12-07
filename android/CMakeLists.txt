@@ -60,29 +60,52 @@ endif()
 
 set(DGB_EXTRA_CONFIGURE_ARGS "" CACHE STRING "Additional configure flags passed to DigiByte Core")
 
+# CRITICAL: Prioritize environment variables (set by build-android.sh) over CMake detected compilers
+# to ensure we always use the NDK cross-compiler (aarch64-clang), not the host compiler (gcc/clang).
 set(DGB_CC "$ENV{CC}")
-if(DGB_CC STREQUAL "")
+if(DGB_CC STREQUAL "" AND NOT CMAKE_C_COMPILER STREQUAL "")
   set(DGB_CC "${CMAKE_C_COMPILER}")
+elseif(DGB_CC STREQUAL "")
+  message(FATAL_ERROR "CC environment variable not set and CMAKE_C_COMPILER is empty. This indicates the NDK toolchain was not properly loaded or build-android.sh did not set CC. Check your NDK path and CMake configuration.")
 endif()
 
 set(DGB_CXX "$ENV{CXX}")
-if(DGB_CXX STREQUAL "")
+if(DGB_CXX STREQUAL "" AND NOT CMAKE_CXX_COMPILER STREQUAL "")
   set(DGB_CXX "${CMAKE_CXX_COMPILER}")
+elseif(DGB_CXX STREQUAL "")
+  message(FATAL_ERROR "CXX environment variable not set and CMAKE_CXX_COMPILER is empty. Ensure build-android.sh passes CXX env var correctly.")
 endif()
 
 set(DGB_AR "$ENV{AR}")
 if(DGB_AR STREQUAL "")
-  set(DGB_AR "${CMAKE_AR}")
+  if(NOT CMAKE_AR STREQUAL "")
+    set(DGB_AR "${CMAKE_AR}")
+  else()
+    message(FATAL_ERROR "AR environment variable not set and CMAKE_AR is empty.")
+  endif()
 endif()
 
 set(DGB_RANLIB "$ENV{RANLIB}")
 if(DGB_RANLIB STREQUAL "")
-  set(DGB_RANLIB "${CMAKE_RANLIB}")
+  if(NOT CMAKE_RANLIB STREQUAL "")
+    set(DGB_RANLIB "${CMAKE_RANLIB}")
+  else()
+    message(FATAL_ERROR "RANLIB environment variable not set and CMAKE_RANLIB is empty.")
+  endif()
 endif()
 
 set(DGB_LD "$ENV{LD}")
 if(DGB_LD STREQUAL "")
-  set(DGB_LD "${CMAKE_LINKER}")
+  if(NOT CMAKE_LINKER STREQUAL "")
+    set(DGB_LD "${CMAKE_LINKER}")
+  else()
+    message(FATAL_ERROR "LD environment variable not set and CMAKE_LINKER is empty.")
+  endif()
+endif()
+
+# Warn if compiler doesn't look like a cross-compiler
+if(NOT DGB_CC MATCHES "aarch64|armv7a" AND NOT DGB_CC MATCHES "clang")
+  message(WARNING "WARNING: DGB_CC does not appear to be an ARM Android cross-compiler: ${DGB_CC}")
 endif()
 
 string(REGEX REPLACE "(^| )-D_FORTIFY_SOURCE=2($| )" " " DGB_CORE_CFLAGS "${CMAKE_C_FLAGS} ${DGB_COMMON_CFLAGS}")

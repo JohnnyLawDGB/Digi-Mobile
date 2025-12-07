@@ -44,9 +44,12 @@ if(NOT CMAKE_C_COMPILER)
   message(FATAL_ERROR "CMAKE_C_COMPILER not set after including NDK toolchain. NDK toolchain may not have been loaded correctly.")
 endif()
 
-message(STATUS "Android NDK Toolchain: ${CMAKE_C_COMPILER}")
-message(STATUS "Android ABI: ${ANDROID_ABI}")
-message(STATUS "Android Platform: ${ANDROID_PLATFORM}")
+message(STATUS "[Digi-Mobile] Android NDK Toolchain Loaded")
+message(STATUS "[Digi-Mobile] CMAKE_C_COMPILER: ${CMAKE_C_COMPILER}")
+message(STATUS "[Digi-Mobile] CMAKE_CXX_COMPILER: ${CMAKE_CXX_COMPILER}")
+message(STATUS "[Digi-Mobile] Android ABI: ${ANDROID_ABI}")
+message(STATUS "[Digi-Mobile] Android Platform: ${ANDROID_PLATFORM}")
+message(STATUS "[Digi-Mobile] CMAKE_SYSTEM_NAME: ${CMAKE_SYSTEM_NAME}")
 
 # Default to position-independent code; additional Android-friendly flags are
 # applied in the top-level android/CMakeLists.txt.
