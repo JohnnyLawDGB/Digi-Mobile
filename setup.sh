@@ -48,6 +48,18 @@ print_banner
 require_cmd git
 require_cmd adb
 
+verify_arm64_binary() {
+  local path="$1"
+  [[ -f "$path" ]] || return 1
+  local desc
+  desc="$(file "$path" || true)"
+  if [[ ! "$desc" =~ aarch64 ]]; then
+    color_echo red "[setup] ERROR: Non-ARM64 binary detected at $path (file: $desc)"
+    return 1
+  fi
+  return 0
+}
+
 DEVICE_ID=$(detect_device)
 color_echo green "Using device: $DEVICE_ID"
 
@@ -68,16 +80,14 @@ detect_device_abi() {
 
   local selected=""
   for abi in "${device_abis[@]}"; do
-    case "$abi" in
-      arm64-v8a|armeabi-v7a)
-        selected="$abi"
-        break
-        ;;
-    esac
+    if [[ "$abi" == "arm64-v8a" ]]; then
+      selected="$abi"
+      break
+    fi
   done
 
   if [[ -z "$selected" ]]; then
-    color_echo red "[setup] ERROR: Device ABI(s) '$raw_abies' not supported (need arm64-v8a or armeabi-v7a)"
+    color_echo red "[setup] ERROR: Device ABI(s) '$raw_abies' not supported (need arm64-v8a)"
     exit 1
   fi
 
@@ -91,6 +101,11 @@ color_echo green "[Digi-Mobile] Detected device ABI(s): $DEVICE_ABIS_RAW -> usin
 export ABI="$SELECTED_ABI"
 export ANDROID_ABI="$SELECTED_ABI"
 color_echo yellow "[Digi-Mobile] Using ABI $SELECTED_ABI for device $DEVICE_ID"
+
+if [[ "$SELECTED_ABI" != "arm64-v8a" ]]; then
+  color_echo red "[setup] ERROR: Android pipeline is ARM64-only. Detected ABI $SELECTED_ABI."
+  exit 1
+fi
 
 NDK_PATH=$(detect_ndk || true)
 if [[ -n "$NDK_PATH" ]]; then
@@ -119,15 +134,16 @@ else
 fi
 
 prebuilt="$(detect_prebuilt || true)"
-use_prebuilt=false
 if [[ -n "$prebuilt" ]]; then
-  color_echo green "[Digi-Mobile] Prebuilt binary: $prebuilt"
-  if confirm "Use the prebuilt binary instead of building?" "y"; then
-    use_prebuilt=true
+  if verify_arm64_binary "$prebuilt"; then
+    color_echo green "[Digi-Mobile] Using existing ARM64 binary: $prebuilt"
+  else
+    color_echo yellow "[Digi-Mobile] Ignoring non-ARM64 prebuilt at $prebuilt"
+    prebuilt=""
   fi
 fi
 
-if [[ "$use_prebuilt" == false ]]; then
+if [[ -z "$prebuilt" ]]; then
   print_step "Build selection"
   if [[ -z "$NDK_PATH" ]]; then
     color_echo red "Android NDK not found. Set ANDROID_NDK_HOME or install the NDK before building."
@@ -141,6 +157,11 @@ fi
 
 if [[ -z "$prebuilt" ]]; then
   color_echo red "No digibyted binary found. Please ensure the build completed successfully."
+  exit 1
+fi
+
+if ! verify_arm64_binary "$prebuilt"; then
+  color_echo red "[setup] ERROR: Non-ARM64 binary located at $prebuilt after build."
   exit 1
 fi
 

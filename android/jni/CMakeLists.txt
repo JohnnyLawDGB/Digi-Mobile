@@ -5,6 +5,10 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
+if(NOT ANDROID_ABI STREQUAL "arm64-v8a")
+  message(FATAL_ERROR "Digi-Mobile JNI layer only supports ANDROID_ABI=arm64-v8a")
+endif()
+
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/jni-lib/${ANDROID_ABI})
 
 add_library(digimobile_jni SHARED digimobile_jni.cpp)

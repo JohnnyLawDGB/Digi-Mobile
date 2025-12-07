@@ -9,14 +9,15 @@ project(DigiByteAndroid C CXX)
 
 include(ExternalProject)
 
-# ABIs can be overridden via -DANDROID_ABI=... or ARCH/ABI env vars passed to the
-# helper scripts. Defaults favor 64-bit devices but 32-bit is supported for
-# legacy hardware.
+# Force a single supported ABI. Any attempt to override this should fail fast so
+# the Android pipeline never emits x86/other artifacts.
 if(NOT DEFINED ANDROID_ABI)
   set(ANDROID_ABI "arm64-v8a" CACHE STRING "Android ABI to target")
 endif()
-set_property(CACHE ANDROID_ABI PROPERTY STRINGS "arm64-v8a" "armeabi-v7a")
-# TODO: Add support for additional ABIs (x86/x86_64) once tested.
+
+if(NOT ANDROID_ABI STREQUAL "arm64-v8a")
+  message(FATAL_ERROR "Android pipeline only supports ANDROID_ABI=arm64-v8a; received ${ANDROID_ABI}")
+endif()
 
 # Allow API level overrides for newer/older devices.
 if(NOT DEFINED ANDROID_PLATFORM)
@@ -30,13 +31,9 @@ set(DIGIBYTE_CORE_BUILD_DIR "${CMAKE_BINARY_DIR}/core-build-${ANDROID_ABI}")
 set(DIGIBYTE_CORE_PREFIX "${CMAKE_BINARY_DIR}/android-prefix/${ANDROID_ABI}")
 set(DGB_DEPENDS_DIR "${DIGIBYTE_CORE_SOURCE_DIR}/depends")
 
-set(DGB_HOST_TRIPLE "")
-if(ANDROID_ABI STREQUAL "arm64-v8a")
-  set(DGB_HOST_TRIPLE "aarch64-linux-android")
-elseif(ANDROID_ABI STREQUAL "armeabi-v7a")
-  set(DGB_HOST_TRIPLE "arm-linux-androideabi")
-else()
-  message(FATAL_ERROR "Unsupported ANDROID_ABI: ${ANDROID_ABI}")
+set(DGB_HOST_TRIPLE "aarch64-linux-android")
+if(NOT DGB_HOST_TRIPLE STREQUAL "aarch64-linux-android")
+  message(FATAL_ERROR "Android pipeline only supports host aarch64-linux-android")
 endif()
 
 set(DGB_DEPENDS_CONFIG_SITE "${DGB_DEPENDS_DIR}/${DGB_HOST_TRIPLE}/share/config.site")
@@ -103,68 +100,37 @@ elseif(DEFINED CMAKE_ANDROID_NDK AND NOT "${CMAKE_ANDROID_NDK}" STREQUAL "")
   set(DGB_ANDROID_NDK_ROOT "${CMAKE_ANDROID_NDK}")
 endif()
 
+if(DGB_ANDROID_NDK_ROOT STREQUAL "")
+  message(FATAL_ERROR "ANDROID_NDK_HOME/ANDROID_NDK not provided. Android pipeline requires the NDK to cross-compile arm64.")
+endif()
+
 set(DGB_ANDROID_API_LEVEL "${ANDROID_PLATFORM}")
 string(REGEX REPLACE "^android-" "" DGB_ANDROID_API_LEVEL "${DGB_ANDROID_API_LEVEL}")
 
-set(DGB_DEFAULT_TOOLCHAIN_BIN "")
-if(NOT DGB_ANDROID_NDK_ROOT STREQUAL "")
-  set(DGB_DEFAULT_TOOLCHAIN_BIN "${DGB_ANDROID_NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64/bin")
-  if(NOT EXISTS "${DGB_DEFAULT_TOOLCHAIN_BIN}")
-    set(DGB_DEFAULT_TOOLCHAIN_BIN "")
-  endif()
+set(DGB_DEFAULT_TOOLCHAIN_BIN "${DGB_ANDROID_NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64/bin")
+if(NOT EXISTS "${DGB_DEFAULT_TOOLCHAIN_BIN}")
+  message(FATAL_ERROR "Android NDK toolchain bin directory missing at ${DGB_DEFAULT_TOOLCHAIN_BIN}")
 endif()
 
 # CRITICAL: Prefer explicit Android NDK target drivers (aarch64-linux-androidXX-clang)
 # to avoid libtool falling back to a host x86_64 linker when LDFLAGS omits --target.
-set(DGB_CC "")
-set(DGB_CXX "")
-set(DGB_AR "")
-set(DGB_RANLIB "")
-if(NOT DGB_DEFAULT_TOOLCHAIN_BIN STREQUAL "")
-  set(_dgb_target_cc "${DGB_DEFAULT_TOOLCHAIN_BIN}/${DGB_HOST_TRIPLE}${DGB_ANDROID_API_LEVEL}-clang")
-  set(_dgb_target_cxx "${DGB_DEFAULT_TOOLCHAIN_BIN}/${DGB_HOST_TRIPLE}${DGB_ANDROID_API_LEVEL}-clang++")
-  if(EXISTS "${_dgb_target_cc}" AND EXISTS "${_dgb_target_cxx}")
-    set(DGB_CC "${_dgb_target_cc}")
-    set(DGB_CXX "${_dgb_target_cxx}")
-    set(DGB_AR "${DGB_DEFAULT_TOOLCHAIN_BIN}/llvm-ar")
-    set(DGB_RANLIB "${DGB_DEFAULT_TOOLCHAIN_BIN}/llvm-ranlib")
+set(DGB_CC "${DGB_DEFAULT_TOOLCHAIN_BIN}/${DGB_HOST_TRIPLE}${DGB_ANDROID_API_LEVEL}-clang")
+set(DGB_CXX "${DGB_DEFAULT_TOOLCHAIN_BIN}/${DGB_HOST_TRIPLE}${DGB_ANDROID_API_LEVEL}-clang++")
+set(DGB_AR "${DGB_DEFAULT_TOOLCHAIN_BIN}/llvm-ar")
+set(DGB_RANLIB "${DGB_DEFAULT_TOOLCHAIN_BIN}/llvm-ranlib")
+
+foreach(_required_tool IN LISTS DGB_CC DGB_CXX DGB_AR DGB_RANLIB)
+  if(NOT EXISTS "${_required_tool}")
+    message(FATAL_ERROR "Required Android NDK tool not found: ${_required_tool}")
   endif()
+endforeach()
+
+if(NOT DGB_CC MATCHES "${DGB_HOST_TRIPLE}")
+  message(FATAL_ERROR "DGB_CC must target ${DGB_HOST_TRIPLE}; detected ${DGB_CC}")
 endif()
 
-if(DGB_CC STREQUAL "")
-  set(DGB_CC "$ENV{CC}")
-  if(DGB_CC STREQUAL "" AND NOT CMAKE_C_COMPILER STREQUAL "")
-    set(DGB_CC "${CMAKE_C_COMPILER}")
-  elseif(DGB_CC STREQUAL "")
-    message(FATAL_ERROR "Unable to determine CC. Provide ANDROID_NDK_HOME or set CC explicitly.")
-  endif()
-endif()
-
-if(DGB_CXX STREQUAL "")
-  set(DGB_CXX "$ENV{CXX}")
-  if(DGB_CXX STREQUAL "" AND NOT CMAKE_CXX_COMPILER STREQUAL "")
-    set(DGB_CXX "${CMAKE_CXX_COMPILER}")
-  elseif(DGB_CXX STREQUAL "")
-    message(FATAL_ERROR "Unable to determine CXX. Provide ANDROID_NDK_HOME or set CXX explicitly.")
-  endif()
-endif()
-
-if(DGB_AR STREQUAL "")
-  set(DGB_AR "$ENV{AR}")
-  if(DGB_AR STREQUAL "" AND NOT CMAKE_AR STREQUAL "")
-    set(DGB_AR "${CMAKE_AR}")
-  elseif(DGB_AR STREQUAL "")
-    message(FATAL_ERROR "AR environment variable not set and CMAKE_AR is empty.")
-  endif()
-endif()
-
-if(DGB_RANLIB STREQUAL "")
-  set(DGB_RANLIB "$ENV{RANLIB}")
-  if(DGB_RANLIB STREQUAL "" AND NOT CMAKE_RANLIB STREQUAL "")
-    set(DGB_RANLIB "${CMAKE_RANLIB}")
-  elseif(DGB_RANLIB STREQUAL "")
-    message(FATAL_ERROR "RANLIB environment variable not set and CMAKE_RANLIB is empty.")
-  endif()
+if(NOT DGB_CXX MATCHES "${DGB_HOST_TRIPLE}")
+  message(FATAL_ERROR "DGB_CXX must target ${DGB_HOST_TRIPLE}; detected ${DGB_CXX}")
 endif()
 
 # Prefer toolchain bin directory (derived from CC) when spawning configure so that
@@ -277,7 +243,7 @@ if(EXISTS "${DIGIBYTE_CORE_SOURCE_DIR}/src")
       ${DIGIBYTE_CORE_SOURCE_DIR}/autogen.sh
       COMMAND ${CMAKE_COMMAND} -E env
       ${DGB_TOOLCHAIN_ENV}
-      ${DIGIBYTE_CORE_SOURCE_DIR}/configure ${DGB_CONFIGURE_ARGS}
+      /bin/sh -c "if [ \"${DGB_HOST_TRIPLE}\" != \"aarch64-linux-android\" ]; then echo 'Android pipeline only supports aarch64-linux-android host for digibyte_core.'; exit 1; fi; exec ${DIGIBYTE_CORE_SOURCE_DIR}/configure ${DGB_CONFIGURE_ARGS}"
     BUILD_COMMAND ${CMAKE_COMMAND} -E env
       ${DGB_TOOLCHAIN_ENV}
       ${DGB_MAKE_PROGRAM} -j${DGB_JOB_COUNT}
