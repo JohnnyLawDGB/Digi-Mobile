@@ -139,6 +139,21 @@ Tried common locations. Set ANDROID_NDK_HOME or ANDROID_NDK_ROOT to your NDK pat
   [[ -d "${BIN_DIR}" ]] || die "digibyted binary missing at ${BIN_DIR}; CMake install step may have failed."
   [[ -f "${JNI_SO_SOURCE}" ]] || die "JNI shared library missing at ${JNI_SO_SOURCE}; JNI build may have failed."
 
+  # Sanity check: ensure executables are really cross-compiled for the target ABI
+  # before staging them into jniLibs/assets. Abort early if the host compiler was
+  # picked up by mistake.
+  for candidate in "${BIN_DIR}/digibyted" "${BIN_DIR}/digibyte-cli"; do
+    if [[ -f "${candidate}" ]]; then
+      local file_out
+      file_out="$(file "${candidate}" || true)"
+      if [[ "${ABI}" == "arm64-v8a" && ! "${file_out}" =~ aarch64 ]]; then
+        die "${candidate} is not arm64 (file reports: ${file_out}). Ensure the NDK toolchain is used."
+      elif [[ "${ABI}" == "armeabi-v7a" && ! "${file_out}" =~ ARM ]]; then
+        die "${candidate} is not ARM 32-bit (file reports: ${file_out})."
+      fi
+    fi
+  done
+
   log "Staging native artifacts into ${JNI_TARGET_DIR}"
   mkdir -p "${JNI_TARGET_DIR}"
   shopt -s nullglob
