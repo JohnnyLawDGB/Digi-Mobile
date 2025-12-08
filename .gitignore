@@ -9,6 +9,5 @@ local.properties
 build-android/bin/
 core/build-android-*/
 android/app/src/main/assets/bin/digibyted-arm64
-
-
+android/gradle/wrapper/gradle-wrapper.jar
 gradle/wrapper/gradle-wrapper.jar
