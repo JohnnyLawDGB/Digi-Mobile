@@ -1,5 +1,7 @@
 ## Fix for X86 Binaries Being Built Instead of ARM64
 
+> **DEPRECATED — historical troubleshooting notes.** The supported build path is `./setup.sh`, which already enforces arm64 builds and ABI verification for the current pre-release.
+
 ### Problem
 The build system was sometimes producing x86/x86_64 binaries instead of arm64-v8a, rendering the APK non-functional on ARM64 devices.
 

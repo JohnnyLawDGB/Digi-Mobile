@@ -2,6 +2,15 @@
 
 This guide is for developers who want to **build and run Digi-Mobile from source** on macOS, Linux, or in a dev container.
 
+> **THIS IS HIGHLY EXPERIMENTAL SOFTWARE. DO NOT INSTALL ON ANYTHING OTHER THAN SPARE HARDWARE YOU WOULDN’T MIND BRICKING.**
+
+Current behavior to keep in mind:
+
+- Relay node only (no wallet UI) with console/RPC available
+- Pruned/truncated target size: ~3.2 GB; keep 4–5 GB free on device
+- Tested on arm64 Android devices with 4 GB RAM; max peers = 8 (intentional)
+- Initial sync is long-running even in pruned mode
+
 ## Prerequisites
 
 Before you start, ensure you have:
@@ -37,19 +46,18 @@ From the repository root, run:
 ```
 
 This wizard will:
-1. Auto-detect your Android device (or emulator) if plugged in via USB
-2. Verify JDK 17, Android SDK, NDK, and CMake are installed
-3. Initialize the DigiByte Core checkout into `core/` (if missing)
-4. Build or use prebuilt daemon binaries
-5. Assemble the APK and optionally push it to your device
+1. Verify JDK 17, Android SDK, NDK, and CMake are installed
+2. Initialize the DigiByte Core checkout into `core/` (if missing)
+3. Build or use prebuilt daemon binaries
+4. Assemble the APK and optionally push it to your device
 
-**After setup.sh completes**, use:
+**After setup.sh completes**, use the entry points referenced in the main README:
 ```bash
-./status.sh              # Check if node is running on device
-./stop.sh               # Stop the node
+./status.sh    # Check if node is running on device
+./stop.sh      # Stop the node
 ```
 
-See [`docs/GETTING-STARTED-NONTECH.md`](GETTING-STARTED-NONTECH.md) for what to expect after the node starts.
+See [`docs/GETTING-STARTED-NONTECH.md`](GETTING-STARTED-NONTECH.md) for what the relay node experience looks like once running.
 
 ## Manual Build Steps (Advanced)
 

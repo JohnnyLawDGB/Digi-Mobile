@@ -1,5 +1,7 @@
 ## Critical Fix: CMake Not Using Android NDK Toolchain
 
+> **DEPRECATED — historical troubleshooting notes.** The supported build path is `./setup.sh`, which already encodes the required NDK toolchain handling for the current pre-release.
+
 ### Problem Diagnosis
 The build is still producing **x86-64 binaries** instead of arm64-v8a, even with the previous fixes.
 

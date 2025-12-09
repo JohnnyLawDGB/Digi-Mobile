@@ -1,21 +1,31 @@
 # Digi-Mobile – Truncated DigiByte Core for Android
 
-Digi-Mobile packages DigiByte Core as a pruned, Android-friendly full node build. The project keeps consensus and P2P behavior identical to upstream DigiByte Core while focusing on pruning-friendly defaults, cross-compiling, and Android packaging so devices can run a lightweight daemon and CLI.
+> **THIS IS HIGHLY EXPERIMENTAL SOFTWARE. DO NOT INSTALL ON ANYTHING OTHER THAN SPARE HARDWARE YOU WOULDN’T MIND BRICKING.**
 
-**Status:** VERY EARLY, EXPERIMENTAL. Hobby/testing use only. Do not store serious funds. See [`docs/SECURITY-PRIVACY.md`](docs/SECURITY-PRIVACY.md) for disclaimers.
+Digi-Mobile packages DigiByte Core as a pruned, Android-friendly node build. Core consensus and P2P logic remain identical to DigiByte Core v8.26.x; this project focuses on pruning defaults, Android packaging, and daemon orchestration.
+
+## What this pre-release does
+
+- **Relay node only (no wallet UI):** The APK runs the DigiByte daemon as a foreground service and exposes console/RPC commands; wallet features are not present in this build.
+- **Storage target:** ~**3.2 GB** for the truncated chain state.
+- **Memory expectations:** Tested on devices with **4 GB RAM**.
+- **Peer limit:** Max peers = **8** (intentional for mobile stability).
+- **Sync behavior:** Initial blockchain sync is long-running even in pruned mode; an archival bootstrap file will not trivially skip this.
+
+## Device requirements
+
+- 64-bit Android device (arm64-v8a) with at least **4 GB RAM**
+- ~4–5 GB free space to accommodate the ~3.2 GB pruned data target and overhead
+- Android 9+ recommended
 
 ## Getting Started
 
-Choose your path:
+### 👤 Non-Technical Users – Install & Run on Android
+1. On your Android device, open this GitHub repo and tap **Releases**.
+2. Download the latest APK and install it (allow "unknown sources" if prompted).
+3. Open Digi-Mobile and tap **Set up and start node** to create data folders and start the relay node.
 
-### 👤 Non-Technical Users – Install & Run
-1. On your Android device, open this GitHub repo in a browser and go to **Releases**
-2. Download the latest APK
-3. Install it (enable "unknown sources" if prompted)
-4. Open Digi-Mobile and tap **Set up and start node**
-
-For step-by-step walkthrough, see [`docs/MOBILE-INSTALL.md`](docs/MOBILE-INSTALL.md).  
-For a plain-English overview, see [`docs/GETTING-STARTED-NONTECH.md`](docs/GETTING-STARTED-NONTECH.md).
+Details and screenshots: [`docs/MOBILE-INSTALL.md`](docs/MOBILE-INSTALL.md) and [`docs/GETTING-STARTED-NONTECH.md`](docs/GETTING-STARTED-NONTECH.md).
 
 ### 👨‍💻 Developers – Build from Source
 1. Clone the repository:
@@ -23,42 +33,30 @@ For a plain-English overview, see [`docs/GETTING-STARTED-NONTECH.md`](docs/GETTI
    git clone https://github.com/JohnnyLawDGB/Digi-Mobile.git
    cd Digi-Mobile
    ```
-2. Follow the **one-command setup**:
+2. Run the **one-command setup**:
    ```bash
    ./setup.sh
    ```
-   This installs prerequisites, builds the daemon, and packages the APK.
+   Installs prerequisites, builds the daemon, and packages the APK. Use `./status.sh` to check the node and `./stop.sh` to stop it.
 
-If you hit the NDK fuzz harness build failure about `cookie_io_functions_t`, use the condensed guide in [`docs/ANDROID-FUZZ-BUILD-FIX.md`](docs/ANDROID-FUZZ-BUILD-FIX.md) to apply the one-line guard patch and rebuild.
+Advanced/manual steps live in [`docs/GETTING-STARTED-DEV.md`](docs/GETTING-STARTED-DEV.md#manual-build-steps-advanced).
 
-Digi-Mobile currently wraps DigiByte Core v8.26.x (default tag `v8.26.1`). See [`docs/CORE-VERSIONING.md`](docs/CORE-VERSIONING.md) for details.
-For detailed steps, prerequisites, and troubleshooting, see [`docs/GETTING-STARTED-DEV.md`](docs/GETTING-STARTED-DEV.md).
+## Architecture
 
-### 🏗️ Advanced – Manual Build Steps
-If you prefer to understand and run each step individually, see [`docs/GETTING-STARTED-DEV.md`](docs/GETTING-STARTED-DEV.md#manual-build-steps-advanced).
+- DigiByte Core v8.26.x is vendored in `./core` (default tag `v8.26.1`); override with `CORE_REF` if needed.
+- Consensus and P2P behavior are unchanged from DigiByte Core; this project only layers pruning-friendly defaults, Android packaging, and daemon orchestration.
 
-## Version & Disclaimers
+See [`docs/CORE-VERSIONING.md`](docs/CORE-VERSIONING.md) for version pin details.
 
-**Digi-Mobile currently wraps DigiByte Core v8.26.1** (configurable via `CORE_REF`).
+## Roadmap (next steps)
 
-**⚠️ Disclaimers:**
-- **EXPERIMENTAL:** This project is early-stage. Expect rough edges and breaking changes.
-- **HOBBY USE ONLY:** Do not store serious amounts of DigiByte or rely on this for production custody.
-- **NO LIABILITY:** Maintainers are not responsible for lost funds, data, or any other damages.
-- **DEVICE RISK:** Android devices can be lost, stolen, or compromised. See [`docs/SECURITY-PRIVACY.md`](docs/SECURITY-PRIVACY.md).
-
-## Design Principles
-
-- **Minimal core changes:** Consensus and P2P logic remain untouched; pinned to known DigiByte Core release.
-- **Pruning-first:** Optimized for storage-bounded nodes on mobile devices.
-- **Transparent build:** Cross-compilation and asset staging are explicit and auditable.
+- Interactive node configuration based on device capabilities
+- Improved initial synchronization behavior and UX
+- Minimal core wallet functionality (future, not present today)
+- Hardening and security assessment
 
 ## Contributing
 
 Issues and roadmap items are tracked on [GitHub Issues](https://github.com/JohnnyLawDGB/Digi-Mobile/issues).
 
-See [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) for contribution guidelines, coding style, and good starting areas:
-- JNI bridge improvements
-- Android app UX and daemon integration
-- CI/CD enhancements for reproducible builds
-- Documentation improvements
+See [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) for contribution guidelines and good starting areas.
