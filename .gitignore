@@ -11,3 +11,27 @@ core/build-android-*/
 android/app/src/main/assets/bin/digibyted-arm64
 android/gradle/wrapper/gradle-wrapper.jar
 gradle/wrapper/gradle-wrapper.jar
+
+# ---- Android build outputs ----
+android/.gradle/
+android/build/
+android/app/.cxx/
+android/app/build/
+android/app/src/main/jniLibs/
+android/app/src/main/assets/bin/
+
+# ---- Binaries never committed ----
+*.so
+*.elf
+*.bin
+*.apk
+
+# ---- Core giant directory protection ----
+core/
+!core/patches/
+!core/configure.ac
+!core/Makefile.am
+
+
+# Local backup files
+*.bak-local
