@@ -1,19 +1,19 @@
 # Digi-Mobile Security & Privacy Notes
 
+> **THIS IS HIGHLY EXPERIMENTAL SOFTWARE. DO NOT INSTALL ON ANYTHING OTHER THAN SPARE HARDWARE YOU WOULDN’T MIND BRICKING.**
+
 ## Overview
-- Digi-Mobile runs a pruned DigiByte full node on an Android device. It keeps consensus behavior intact while discarding older blocks to save space.
-- The app can optionally store private keys if you enable wallet functionality.
+- Digi-Mobile runs a pruned DigiByte relay node on an Android device. It keeps consensus behavior intact while discarding older blocks to save space.
+- Wallet functionality is **not present** in this pre-release; console/RPC access remains available for advanced users.
 - Phones and tablets are consumer devices, not dedicated security hardware. Treat them accordingly.
 
 ## Key Security Points
-- **Do not store large or irreplaceable amounts of DigiByte with Digi-Mobile.**
-- **Treat Digi-Mobile as a hobby/test setup, not as your primary wallet.**
+- **Do not store irreplaceable data on this device. Use only spare hardware.**
 - Device risks:
-  - If your phone is lost or stolen, someone else may access your node or wallet if they bypass OS security.
+  - If your phone is lost or stolen, someone else may access node data if they bypass OS security.
   - Malicious apps on the same device may try to read data directories if the OS is compromised or rooted.
 - Upgrade risks:
   - Experimental builds can have bugs that lead to data loss or corruption.
-  - Always back up wallet seeds/keys using other secure methods if you choose to use the wallet.
 
 ## Privacy Considerations
 - Running a node means your device connects to peers and shares transaction/block data to help the network.
@@ -32,9 +32,7 @@
   - How much historical data remains on your device.
 
 ## Wallet Usage Guidance
-- Digi-Mobile is okay as a small wallet to receive mining payouts or small test amounts.
-- It is not recommended as your main long-term savings wallet.
-- Always back up keys/seeds outside the device, and prefer hardware wallets or better-audited software for significant balances.
+- This pre-release does **not** include wallet functionality. Future work may add minimal wallet support; today this is a relay node only.
 
 ## Threat Model (High Level)
 - Example threats:

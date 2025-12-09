@@ -1,13 +1,13 @@
 # Documentation Index
 
-This folder contains comprehensive guides for users, developers, and contributors.
+This folder contains the authoritative guides for the current **relay-node-only** pre-release. Core consensus behavior matches DigiByte Core v8.26.x; this project focuses on pruning defaults, Android packaging, and daemon orchestration. Device expectations: ~3.2 GB storage target, tested on 4 GB RAM devices, max peers = 8, long-running initial sync.
 
 ## Quick Navigation
 
 ### 👤 End Users (Non-Technical)
-- **[GETTING-STARTED-NONTECH.md](GETTING-STARTED-NONTECH.md)** – Plain-English overview and use cases
-- **[MOBILE-INSTALL.md](MOBILE-INSTALL.md)** – Download and install the APK on Android
-- **[SECURITY-PRIVACY.md](SECURITY-PRIVACY.md)** – Security and privacy considerations (important!)
+- **[GETTING-STARTED-NONTECH.md](GETTING-STARTED-NONTECH.md)** – Plain-English overview and use cases for the relay node
+- **[MOBILE-INSTALL.md](MOBILE-INSTALL.md)** – Download and install the APK on Android (relay-node-only)
+- **[SECURITY-PRIVACY.md](SECURITY-PRIVACY.md)** – Critical safety notes (experimental; spare hardware only)
 
 ### 👨‍💻 Developers (Building from Source)
 - **[GETTING-STARTED-DEV.md](GETTING-STARTED-DEV.md)** – Prerequisites, one-command setup, troubleshooting
@@ -32,6 +32,11 @@ This folder contains comprehensive guides for users, developers, and contributor
 
 ### 🔧 Environment & Setup
 - **[ENVIRONMENT-UBUNTU-22.04.md](ENVIRONMENT-UBUNTU-22.04.md)** – Full environment setup for Ubuntu 22.04
+
+### 🗂️ Historical / Deprecated
+- **[CMAKE_TOOLCHAIN_FIX.md](../CMAKE_TOOLCHAIN_FIX.md)** – Historical note on early toolchain issues (setup.sh already encodes fixes)
+- **[FIX_X86_BUILD_ISSUE.md](../FIX_X86_BUILD_ISSUE.md)** – Historical ABI-mismatch investigation (not part of the main flow)
+- **[ANDROID-FUZZ-BUILD-FIX.md](ANDROID-FUZZ-BUILD-FIX.md)** – Legacy fuzz harness workaround; only reference if you hit that specific error
 
 ---
 
@@ -69,7 +74,7 @@ This folder contains comprehensive guides for users, developers, and contributor
 - Bundles DigiByte Core (v8.26.1 by default) for arm64 Android devices
 - Runs the daemon as a foreground service
 - Exposes core functionality via JNI to the Kotlin app
-- Supports pruned (storage-efficient) node operation
+- Supports pruned (storage-efficient) node operation (relay node only in this pre-release)
 
 **Build flow:**
 1. DigiByte Core source checked out via `./scripts/setup-core.sh`
@@ -90,23 +95,6 @@ This folder contains comprehensive guides for users, developers, and contributor
 - **Issue Tracker:** https://github.com/JohnnyLawDGB/Digi-Mobile/issues
 - **Releases:** https://github.com/JohnnyLawDGB/Digi-Mobile/releases
 - **DigiByte Core:** https://github.com/DigiByte-Core/digibyte
-
----
-
-## Document Status
-
-| Document | Status | Last Updated |
-|----------|--------|--------------|
-| GETTING-STARTED-DEV.md | ✅ Active | 2025-12-06 |
-| GETTING-STARTED-NONTECH.md | ✅ Active | Current |
-| ADVANCED-ANDROID-BUILD.md | ✅ Active | 2025-12-06 |
-| OVERVIEW.md | ✅ Active | Current |
-| CORE-SETUP.md | ✅ Active | Current |
-| SECURITY-PRIVACY.md | ✅ Active | Current |
-| CONFIGURATION.md | ✅ Active | Current |
-| JNI-BRIDGE.md | ✅ Active | Current |
-| RUNNING-ON-DEVICE.md | ✅ Active | Current |
-| CONTRIBUTING.md | ✅ Active | Current |
 
 ---
 

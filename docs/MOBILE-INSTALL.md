@@ -3,8 +3,8 @@
 
 These steps are for non-technical users who want to try Digi-Mobile on an Android device **without building anything**.
 
-> **Testing / hobby use only.**
-> **Do not store large amounts of DigiByte in this app.**
+> **THIS IS HIGHLY EXPERIMENTAL SOFTWARE. DO NOT INSTALL ON ANYTHING OTHER THAN SPARE HARDWARE YOU WOULDN’T MIND BRICKING.**
+> Relay node only in this build; there is no wallet UI.
 
 ## Install from Android using your browser
 
@@ -13,7 +13,14 @@ These steps are for non-technical users who want to try Digi-Mobile on an Androi
 3. Download the latest Digi-Mobile APK.
 4. If your device asks, allow installs from "unknown sources" so the APK can be installed.
 5. Open the Digi-Mobile app after installation.
-6. Tap **Set up and start node** inside the app to create the config/data folders and start the pruned DigiByte node.
+6. Tap **Set up and start node** inside the app to create the config/data folders and start the pruned DigiByte relay node.
+
+### What to expect
+
+- **Storage:** Targets ~3.2 GB for the truncated chain; keep 4–5 GB free for safety.
+- **Memory:** Tested on devices with **4 GB RAM**.
+- **Peers:** Max peers = **8** (intentional for mobile stability).
+- **Sync time:** Initial blockchain sync is long-running even in pruned mode; a bootstrap archive will not trivially skip it.
 
 ## FAQ
 
@@ -27,6 +34,8 @@ These steps are for non-technical users who want to try Digi-Mobile on an Androi
   - The APK ships only an **arm64-v8a** native library and daemon. 64-bit Android devices (most modern flagships) are supported; 32-bit-only devices will crash on launch with a missing-library error. If the app closes immediately on tap, verify your device reports arm64/aarch64 under its CPU/ABI info before retrying.
 - **Why is there no console/terminal in the app?**
   - Digi-Mobile intentionally ships a simple single-screen activity that boots the bundled DigiByte daemon as a foreground service. It shows status text and a toast after you tap **Set up and start node** but does not expose an interactive CLI. To run RPC/CLI commands you must use external tools (e.g., `adb logcat`, `adb shell`, or a separate client) against the running service.
+- **Does this build include a wallet?**
+  - No. This pre-release is relay-node-only with a deliberate max peer count of 8. RPC commands remain available for advanced users.
 
 ## Technical details
 

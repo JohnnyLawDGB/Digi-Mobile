@@ -1,5 +1,7 @@
 # Android fuzz harness build fix (NDK)
 
+> **DEPRECATED — historical workaround.** Use only if you specifically hit the `cookie_io_functions_t` fuzz harness error; the supported build path is `./setup.sh`.
+
 When cross-compiling DigiByte Core's fuzz harnesses with the Android NDK, the build can fail with `cookie_io_functions_t` being undefined because bionic lacks glibc-only APIs like `fopencookie()`. A tiny guard change resolves the issue so the rest of the Android build can proceed.
 
 ## Quick steps
