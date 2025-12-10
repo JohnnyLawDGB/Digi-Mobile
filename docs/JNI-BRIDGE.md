@@ -7,7 +7,7 @@ _Status: Experimental / Early._ The JNI layer provides a minimal bridge for Andr
 - Contributors interested in evolving the JNI surface without touching consensus logic.
 
 ## What you should have before starting
-- Android NDK and CMake configured (see [`ANDROID-BUILD`](ANDROID-BUILD.md)).
+- Android NDK and CMake configured (see [`ADVANCED-ANDROID-BUILD`](ADVANCED-ANDROID-BUILD.md)).
 - The DigiByte daemon built and bundled for your target ABI.
 - Comfort reading simple C++ and JNI signatures.
 
@@ -47,5 +47,5 @@ controller.stopNode();
 
 ## Related docs
 - [`OVERVIEW`](OVERVIEW.md) for project context.
-- [`ANDROID-BUILD`](ANDROID-BUILD.md) for build steps.
+- [`ADVANCED-ANDROID-BUILD`](ADVANCED-ANDROID-BUILD.md) for build steps.
 - [`CONFIGURATION`](CONFIGURATION.md) to choose a config passed into the JNI bridge.

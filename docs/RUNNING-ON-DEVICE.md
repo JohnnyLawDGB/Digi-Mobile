@@ -59,4 +59,3 @@ _Status: Experimental / Early._ Digi-Mobile provides adb-based helpers for pushi
 ## Related docs
 - [`OVERVIEW`](OVERVIEW.md) for project context.
 - [`CONFIGURATION`](CONFIGURATION.md) to choose a profile before pushing.
-- [`ANDROID-INSTALL`](ANDROID-INSTALL.md) for packaging into apps/Termux.
