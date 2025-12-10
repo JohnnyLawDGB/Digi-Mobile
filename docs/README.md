@@ -1,6 +1,6 @@
 # Documentation Index
 
-This folder contains the authoritative guides for the current **relay-node-only** pre-release. Core consensus behavior matches DigiByte Core v8.26.x; this project focuses on pruning defaults, Android packaging, and daemon orchestration. Device expectations: ~3.2 GB storage target, tested on 4 GB RAM devices, max peers = 8, long-running initial sync.
+This folder contains the authoritative guides for the current **relay-node-only** pre-release. Core consensus behavior matches DigiByte Core v8.26.x; this project focuses on pruning defaults, Android packaging, and daemon orchestration. Device expectations: ~3.2 GB storage target, tested on 4 GB RAM devices, max peers = 8, long-running initial sync. Configuration guidance is consolidated in **[CONFIGURATION.md](CONFIGURATION.md)** to avoid conflicting profiles.
 
 ## Quick Navigation
 
@@ -18,12 +18,10 @@ This folder contains the authoritative guides for the current **relay-node-only*
 ### 🏗️ Architecture & Deep Dives
 - **[OVERVIEW.md](OVERVIEW.md)** – High-level architecture, design principles, key directories
 - **[JNI-BRIDGE.md](JNI-BRIDGE.md)** – JNI integration between Kotlin app and C++ daemon
-- **[PRUNING.md](PRUNING.md)** – Pruned node behavior and storage optimization
 - **[RPC-CONSOLE.md](RPC-CONSOLE.md)** – Using the RPC console and running commands
 
 ### 📱 Device Management
 - **[RUNNING-ON-DEVICE.md](RUNNING-ON-DEVICE.md)** – adb-based deployment, monitoring, and maintenance
-- **[ANDROID-INSTALL.md](ANDROID-INSTALL.md)** – Pushing binaries to devices and Termux environments
 
 ### 🛠️ Project Maintenance
 - **[CONTRIBUTING.md](CONTRIBUTING.md)** – Contribution guidelines, coding standards, PR process
