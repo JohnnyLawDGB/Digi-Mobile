@@ -15,6 +15,7 @@ import java.io.FileOutputStream
 // - DigiConfigTemplate.ensureConfig(): creates or reads the default mobile digibyte.conf.
 // - DigiMobileNodeController.startNode() / nativeStartNode(): pass -conf/-datadir to digibyted.
 class NodeBootstrapper(private val context: Context) {
+    private val configStore = NodeConfigStore(context)
 
     data class NodePaths(
         val configFile: File,
@@ -156,7 +157,8 @@ class NodeBootstrapper(private val context: Context) {
     }
 
     private fun ensureConfig(dataDir: File): RpcCredentials {
-        return DigiConfigTemplate.ensureConfig(dataDir)
+        val options = configStore.load()
+        return DigiConfigTemplate.ensureConfig(dataDir, options)
     }
 
     companion object {
