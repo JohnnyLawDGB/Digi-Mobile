@@ -32,6 +32,101 @@ class ChainstateBootstrapper(private val context: Context) {
             }
         }
 
+        return extractSnapshotInto(datadir, onProgress, onLog)
+    }
+
+    fun isSnapshotApplied(): Boolean = prefs.getBoolean(KEY_SNAPSHOT_APPLIED, false)
+
+    fun resetSnapshotFlag() {
+        prefs.edit().putBoolean(KEY_SNAPSHOT_APPLIED, false).apply()
+    }
+
+    suspend fun ensureSnapshotDownloaded(
+        onProgress: (Int) -> Unit,
+        onLog: (String) -> Unit
+    ): File? {
+        val snapshotFile = getSnapshotFile()
+
+        if (snapshotFile.exists()) {
+            val existingChecksum = computeSha256(snapshotFile)
+            if (existingChecksum.equals(SNAPSHOT_SHA256, ignoreCase = true)) {
+                return snapshotFile
+            } else {
+                onLog("Snapshot checksum mismatch, deleting file")
+                snapshotFile.delete()
+            }
+        }
+
+        val tempFile = File(snapshotFile.parentFile, "$SNAPSHOT_FILENAME.download")
+        if (!tempFile.parentFile.exists()) tempFile.parentFile.mkdirs()
+
+        onLog("Starting snapshot download...")
+        onProgress(0)
+
+        return runCatching {
+            val urlConnection = URL(SNAPSHOT_URL).openConnection() as HttpURLConnection
+            urlConnection.connectTimeout = 15_000
+            urlConnection.readTimeout = 15_000
+            urlConnection.connect()
+
+            val contentLength = urlConnection.contentLengthLong.takeIf { it > 0 } ?: -1L
+
+            BufferedInputStream(urlConnection.inputStream).use { input ->
+                FileOutputStream(tempFile).use { output ->
+                    val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                    var bytesRead = 0L
+                    var read = input.read(buffer)
+                    var lastProgress = -1
+                    while (read != -1) {
+                        output.write(buffer, 0, read)
+                        bytesRead += read
+                        if (contentLength > 0) {
+                            val percent = ((bytesRead * 100) / contentLength).toInt().coerceIn(0, 100)
+                            if (percent != lastProgress) {
+                                lastProgress = percent
+                                onProgress(percent)
+                            }
+                        }
+                        read = input.read(buffer)
+                    }
+                    onProgress(100)
+                }
+            }
+
+            onLog("Snapshot download complete")
+
+            val checksum = computeSha256(tempFile)
+            if (!checksum.equals(SNAPSHOT_SHA256, ignoreCase = true)) {
+                onLog("Snapshot checksum mismatch, deleting file")
+                tempFile.delete()
+                null
+            } else if (tempFile.renameTo(snapshotFile)) {
+                snapshotFile
+            } else {
+                tempFile.copyTo(snapshotFile, overwrite = true)
+                tempFile.delete()
+                snapshotFile
+            }
+        }.getOrElse {
+            onLog("Failed to download snapshot: ${it.message}")
+            tempFile.delete()
+            null
+        }
+    }
+
+    fun extractSnapshotInto(
+        datadir: File,
+        onProgress: (Int) -> Unit,
+        onLog: (String) -> Unit = {}
+    ): Boolean {
+        datadir.mkdirs()
+        val snapshotFile = getSnapshotFile()
+
+        if (!snapshotFile.exists()) {
+            onLog("Snapshot file missing; nothing to apply.")
+            return false
+        }
+
         if (prefs.getBoolean(KEY_SNAPSHOT_APPLIED, false)) {
             return true
         }
@@ -104,85 +199,6 @@ class ChainstateBootstrapper(private val context: Context) {
         }.onFailure { error ->
             onLog("Failed to extract snapshot: ${error.message}")
         }.getOrElse { false }
-    }
-
-    fun isSnapshotApplied(): Boolean = prefs.getBoolean(KEY_SNAPSHOT_APPLIED, false)
-
-    fun resetSnapshotFlag() {
-        prefs.edit().putBoolean(KEY_SNAPSHOT_APPLIED, false).apply()
-    }
-
-    private suspend fun ensureSnapshotDownloaded(
-        onProgress: (Int) -> Unit,
-        onLog: (String) -> Unit
-    ): File? {
-        val snapshotFile = getSnapshotFile()
-
-        if (snapshotFile.exists()) {
-            val existingChecksum = computeSha256(snapshotFile)
-            if (existingChecksum.equals(SNAPSHOT_SHA256, ignoreCase = true)) {
-                return snapshotFile
-            } else {
-                onLog("Snapshot checksum mismatch, deleting file")
-                snapshotFile.delete()
-            }
-        }
-
-        val tempFile = File(snapshotFile.parentFile, "$SNAPSHOT_FILENAME.download")
-        if (!tempFile.parentFile.exists()) tempFile.parentFile.mkdirs()
-
-        onLog("Starting snapshot download...")
-        onProgress(0)
-
-        return runCatching {
-            val urlConnection = URL(SNAPSHOT_URL).openConnection() as HttpURLConnection
-            urlConnection.connectTimeout = 15_000
-            urlConnection.readTimeout = 15_000
-            urlConnection.connect()
-
-            val contentLength = urlConnection.contentLengthLong.takeIf { it > 0 } ?: -1L
-
-            BufferedInputStream(urlConnection.inputStream).use { input ->
-                FileOutputStream(tempFile).use { output ->
-                    val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-                    var bytesRead = 0L
-                    var read = input.read(buffer)
-                    var lastProgress = -1
-                    while (read != -1) {
-                        output.write(buffer, 0, read)
-                        bytesRead += read
-                        if (contentLength > 0) {
-                            val percent = ((bytesRead * 100) / contentLength).toInt().coerceIn(0, 100)
-                            if (percent != lastProgress) {
-                                lastProgress = percent
-                                onProgress(percent)
-                            }
-                        }
-                        read = input.read(buffer)
-                    }
-                    onProgress(100)
-                }
-            }
-
-            onLog("Snapshot download complete")
-
-            val checksum = computeSha256(tempFile)
-            if (!checksum.equals(SNAPSHOT_SHA256, ignoreCase = true)) {
-                onLog("Snapshot checksum mismatch, deleting file")
-                tempFile.delete()
-                null
-            } else if (tempFile.renameTo(snapshotFile)) {
-                snapshotFile
-            } else {
-                tempFile.copyTo(snapshotFile, overwrite = true)
-                tempFile.delete()
-                snapshotFile
-            }
-        }.getOrElse {
-            onLog("Failed to download snapshot: ${it.message}")
-            tempFile.delete()
-            null
-        }
     }
 
     private fun getSnapshotFile(): File {
