@@ -28,6 +28,7 @@ class NodeSetupActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityNodeSetupBinding
     private lateinit var nodeManager: NodeManager
+    private val chainstateBootstrapper by lazy { ChainstateBootstrapper(this) }
     private var lastNodeState: NodeState = NodeState.Idle
     private val logBuffer = ArrayDeque<String>()
     private var diagnosticsLogged = false
@@ -322,6 +323,9 @@ class NodeSetupActivity : AppCompatActivity() {
     }
 
     private fun updateActionButton(state: NodeState) {
+        binding.buttonActionSecondary.isVisible = false
+        binding.buttonActionSecondary.isEnabled = false
+
         when (state) {
             NodeState.PreparingEnvironment,
             is NodeState.DownloadingBinaries,
@@ -341,9 +345,27 @@ class NodeSetupActivity : AppCompatActivity() {
                 }
             }
             is NodeState.Error -> {
-                binding.buttonAction.text = "Back to home"
-                binding.buttonAction.isEnabled = true
-                binding.buttonAction.setOnClickListener { finish() }
+                val message = state.message.lowercase()
+                val isSnapshotOrBootstrapError =
+                    message.contains("snapshot") || message.contains("bootstrap")
+
+                if (isSnapshotOrBootstrapError) {
+                    binding.buttonAction.text = "Retry snapshot"
+                    binding.buttonAction.isEnabled = true
+                    binding.buttonAction.setOnClickListener { nodeManager.startNode() }
+
+                    binding.buttonActionSecondary.text = "Full sync"
+                    binding.buttonActionSecondary.isVisible = true
+                    binding.buttonActionSecondary.isEnabled = true
+                    binding.buttonActionSecondary.setOnClickListener {
+                        chainstateBootstrapper.resetSnapshotFlag()
+                        nodeManager.startNode()
+                    }
+                } else {
+                    binding.buttonAction.text = "Back to home"
+                    binding.buttonAction.isEnabled = true
+                    binding.buttonAction.setOnClickListener { finish() }
+                }
             }
             else -> {
                 binding.buttonAction.text = "Back"
