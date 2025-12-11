@@ -90,13 +90,16 @@ class NodeManager(
 
             if (configStore.shouldUseSnapshot()) {
                 updateState(
-                    NodeState.ApplyingSnapshot(SnapshotPhase.Download, null),
+                    NodeState.ApplyingSnapshot(phase = SnapshotPhase.Download, progress = null),
                     "Downloading snapshot..."
                 )
                 val snapshotFile = chainstateBootstrapper.ensureSnapshotDownloaded(
                     onProgress = { percent ->
                         updateState(
-                            NodeState.ApplyingSnapshot(SnapshotPhase.Download, percent),
+                            NodeState.ApplyingSnapshot(
+                                phase = SnapshotPhase.Download,
+                                progress = percent
+                            ),
                             "Downloading snapshot ($percent%)"
                         )
                     },
@@ -105,18 +108,21 @@ class NodeManager(
 
                 if (snapshotFile != null) {
                     updateState(
-                        NodeState.ApplyingSnapshot(SnapshotPhase.Verify, null),
+                        NodeState.ApplyingSnapshot(phase = SnapshotPhase.Verify, progress = null),
                         "Verifying snapshot..."
                     )
 
                     updateState(
-                        NodeState.ApplyingSnapshot(SnapshotPhase.Extract, 0),
+                        NodeState.ApplyingSnapshot(phase = SnapshotPhase.Extract, progress = 0),
                         "Extracting snapshot..."
                     )
                     val extractedOk = chainstateBootstrapper.extractSnapshotInto(paths.dataDir) { percent ->
                         updateState(
-                            NodeState.ApplyingSnapshot(SnapshotPhase.Extract, percent),
-                            "Extracting snapshot (${percent}%)"
+                            NodeState.ApplyingSnapshot(
+                                phase = SnapshotPhase.Extract,
+                                progress = percent
+                            ),
+                            "Extracting snapshot ($percent%)"
                         )
                     }
 
