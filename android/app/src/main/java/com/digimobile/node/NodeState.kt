@@ -19,7 +19,8 @@ sealed class NodeState {
         val currentHeight: Long?,
         val headerHeight: Long?,
         val progress: SyncProgress,
-        val peerCount: Int?
+        val peerCount: Int?,
+        val downloadRate: Double?
     ) : NodeState()
     data object Ready : NodeState()
     data class Error(val message: String) : NodeState()
@@ -50,9 +51,10 @@ fun NodeState.toUserMessage(context: Context): String = when (this) {
         val hasDetails = currentHeight != null && headerHeight != null
         val percent = progress.toProgressInt()
         val peersText = peerCount?.let { " with $it peers" } ?: ""
+        val rateText = downloadRate?.let { " at ${String.format("%.2f", it)} blk/s" } ?: ""
 
         if (hasDetails) {
-            "Syncing: height ${currentHeight} / ${headerHeight} (~${percent}%$peersText)"
+            "Syncing: height ${currentHeight} / ${headerHeight} (~${percent}%$peersText$rateText)"
         } else {
             "Node is running; waiting for sync details (digibyte-cli not available in this build)."
         }

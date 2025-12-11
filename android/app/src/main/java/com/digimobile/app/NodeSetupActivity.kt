@@ -359,6 +359,7 @@ class NodeSetupActivity : AppCompatActivity() {
                 val hasDetails =
                     state.currentHeight != null && state.headerHeight != null
                 val peersText = state.peerCount?.let { " with $it peers" } ?: ""
+                val rateText = state.downloadRate?.let { " at ${String.format("%.2f", it)} blk/s" } ?: ""
                 val percent = state.progress.toProgressInt()
                 val statusPrefix = if (state.progress.fraction >= 0.999f) {
                     "Synced"
@@ -367,7 +368,7 @@ class NodeSetupActivity : AppCompatActivity() {
                 }
 
                 if (hasDetails) {
-                    "$statusPrefix height ${state.currentHeight} / ${state.headerHeight} (~${percent}%$peersText)"
+                    "$statusPrefix height ${state.currentHeight} / ${state.headerHeight} (~${percent}%${peersText}${rateText})"
                 } else {
                     "$statusPrefix waiting for peer heights…"
                 }
