@@ -2,6 +2,7 @@ package com.digimobile.node
 
 import android.content.Context
 import com.digimobile.app.NodeBootstrapper
+import com.digimobile.app.ChainstateBootstrapper
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -24,6 +25,8 @@ class NodeManager(
     private val controller: DigiMobileNodeController,
     private val scope: CoroutineScope
 ) {
+
+    private val chainstateBootstrapper = ChainstateBootstrapper(context)
 
     private val _nodeState = MutableStateFlow<NodeState>(NodeState.Idle)
     val nodeState: StateFlow<NodeState> get() = _nodeState
@@ -82,6 +85,21 @@ class NodeManager(
             val paths = bootstrapper.ensureBootstrap()
             lastNodePaths = paths
             evaluateCliAvailability()
+
+            if (chainstateBootstrapper.extractSnapshotIfNeeded(
+                    paths.dataDir,
+                    onProgress = { percent ->
+                        updateState(
+                            NodeState.StartingUp("Applying chainstate snapshot (${percent}%)"),
+                            "Applying chainstate snapshot (${percent}%)"
+                        )
+                    },
+                    onLog = { msg -> appendLog(msg) }
+                ).not()
+            ) {
+                _nodeState.value = NodeState.Error("Failed to apply chainstate snapshot")
+                return@launch
+            }
 
             updateState(NodeState.DownloadingBinaries(progress = 100), "Downloading binaries (100%)…")
             updateState(NodeState.VerifyingBinaries, "Verifying binaries…")
