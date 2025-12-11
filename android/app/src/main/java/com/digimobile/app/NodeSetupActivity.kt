@@ -335,12 +335,27 @@ class NodeSetupActivity : AppCompatActivity() {
             is NodeState.ApplyingSnapshot,
             is NodeState.StartingUp,
             NodeState.ConnectingToPeers,
-            is NodeState.Syncing,
+            is NodeState.Syncing -> {
+                binding.buttonAction.text = "Open core console"
+                binding.buttonAction.isEnabled = true
+                binding.buttonAction.setOnClickListener {
+                    val intent = Intent(this, CoreConsoleActivity::class.java)
+                    startActivity(intent)
+                }
+            }
             NodeState.Ready -> {
                 binding.buttonAction.text = "Open core console"
                 binding.buttonAction.isEnabled = true
                 binding.buttonAction.setOnClickListener {
                     val intent = Intent(this, CoreConsoleActivity::class.java)
+                    startActivity(intent)
+                }
+
+                binding.buttonActionSecondary.text = "Open wallet"
+                binding.buttonActionSecondary.isVisible = true
+                binding.buttonActionSecondary.isEnabled = true
+                binding.buttonActionSecondary.setOnClickListener {
+                    val intent = Intent(this, WalletActivity::class.java)
                     startActivity(intent)
                 }
             }

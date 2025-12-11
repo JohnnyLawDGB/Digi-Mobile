@@ -35,6 +35,10 @@
             android:name="com.digimobile.app.SetupWizardActivity"
             android:exported="false" />
 
+        <activity
+            android:name="com.digimobile.app.WalletActivity"
+            android:exported="false" />
+
         <service
             android:name="com.digimobile.app.NodeService"
             android:exported="false"
