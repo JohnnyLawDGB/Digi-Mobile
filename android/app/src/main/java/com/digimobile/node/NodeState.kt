@@ -9,6 +9,10 @@ sealed class NodeState {
     data object VerifyingBinaries : NodeState()
     data object WritingConfig : NodeState()
     data object StartingDaemon : NodeState()
+    data class ApplyingSnapshot(
+        val phase: SnapshotPhase,
+        val progress: Int? // null for indeterminate phases like verification
+    ) : NodeState()
     data class StartingUp(val reason: String) : NodeState()
     data object ConnectingToPeers : NodeState()
     data class Syncing(
@@ -21,6 +25,12 @@ sealed class NodeState {
     data class Error(val message: String) : NodeState()
 }
 
+sealed interface SnapshotPhase {
+    data object Download : SnapshotPhase
+    data object Verify : SnapshotPhase
+    data object Extract : SnapshotPhase
+}
+
 @Suppress("UNUSED_PARAMETER")
 fun NodeState.toUserMessage(context: Context): String = when (this) {
     NodeState.Idle -> "Node is not running."
@@ -29,6 +39,11 @@ fun NodeState.toUserMessage(context: Context): String = when (this) {
     NodeState.VerifyingBinaries -> "Verifying downloaded files…"
     NodeState.WritingConfig -> "Writing DigiByte configuration…"
     NodeState.StartingDaemon -> "Starting DigiByte node process…"
+    is NodeState.ApplyingSnapshot -> when (phase) {
+        SnapshotPhase.Download -> "Downloading bootstrap snapshot (${progress}%)…"
+        SnapshotPhase.Verify -> "Verifying bootstrap snapshot…"
+        SnapshotPhase.Extract -> "Extracting bootstrap snapshot (${progress}%)…"
+    }
     is NodeState.StartingUp -> "Node starting… ${reason.ifBlank { "this can take a few minutes" }}"
     NodeState.ConnectingToPeers -> "Node is running; waiting for peer connections and sync details…"
     is NodeState.Syncing -> {

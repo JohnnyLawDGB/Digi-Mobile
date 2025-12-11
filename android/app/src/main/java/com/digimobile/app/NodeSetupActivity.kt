@@ -194,6 +194,10 @@ class NodeSetupActivity : AppCompatActivity() {
     private fun updateProgress(state: NodeState) {
         when (state) {
             is NodeState.DownloadingBinaries -> showDownloadProgress(state.progress / 100.0)
+            is NodeState.ApplyingSnapshot -> {
+                if (state.progress != null) showDownloadProgress(state.progress / 100.0)
+                else showIndeterminateProgress()
+            }
             is NodeState.StartingUp -> showIndeterminateProgress()
             is NodeState.Syncing -> showSyncProgress(state.progress)
             else -> hideProgress()
@@ -279,6 +283,13 @@ class NodeSetupActivity : AppCompatActivity() {
                 statuses[SetupStep.WriteConfig] = StepStatus.Done
                 statuses[SetupStep.StartNode] = StepStatus.InProgress
             }
+            is NodeState.ApplyingSnapshot -> {
+                statuses[SetupStep.PrepareEnvironment] = StepStatus.Done
+                statuses[SetupStep.DownloadBinaries] = StepStatus.Done
+                statuses[SetupStep.VerifyBinaries] = StepStatus.Done
+                statuses[SetupStep.WriteConfig] = StepStatus.Done
+                statuses[SetupStep.StartNode] = StepStatus.InProgress
+            }
             is NodeState.StartingUp -> {
                 statuses[SetupStep.PrepareEnvironment] = StepStatus.Done
                 statuses[SetupStep.DownloadBinaries] = StepStatus.Done
@@ -317,6 +328,7 @@ class NodeSetupActivity : AppCompatActivity() {
             NodeState.VerifyingBinaries,
             NodeState.WritingConfig,
             NodeState.StartingDaemon,
+            is NodeState.ApplyingSnapshot,
             is NodeState.StartingUp,
             NodeState.ConnectingToPeers,
             is NodeState.Syncing,
@@ -360,6 +372,7 @@ class NodeSetupActivity : AppCompatActivity() {
                     "$statusPrefix waiting for peer heights…"
                 }
             }
+            is NodeState.ApplyingSnapshot -> state.toUserMessage(this)
             is NodeState.StartingUp -> state.reason
             NodeState.ConnectingToPeers -> "Node is running; waiting for peer connections and sync details…"
             is NodeState.Error -> "Node failed to start. Return to the home screen and try again."

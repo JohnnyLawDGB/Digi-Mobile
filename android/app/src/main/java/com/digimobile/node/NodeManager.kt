@@ -90,7 +90,7 @@ class NodeManager(
                     paths.dataDir,
                     onProgress = { percent ->
                         updateState(
-                            NodeState.StartingUp("Applying chainstate snapshot (${percent}%)"),
+                            NodeState.ApplyingSnapshot(SnapshotPhase.Extract, percent),
                             "Applying chainstate snapshot (${percent}%)"
                         )
                     },
