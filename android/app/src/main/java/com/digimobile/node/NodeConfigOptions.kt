@@ -8,6 +8,7 @@ data class NodeConfigOptions(
     val blocksonly: Boolean = false,
     val telemetryConsent: Boolean = false,
     val wifiOnlyPreference: Boolean = true,
+    val useSnapshot: Boolean = true,
 )
 
 enum class NodeSetupPreset {

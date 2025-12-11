@@ -10,6 +10,8 @@ class NodeConfigStore(context: Context) {
     private val prefs: SharedPreferences =
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
+    private var currentConfig: NodeConfigOptions? = null
+
     fun save(options: NodeConfigOptions) {
         prefs.edit()
             .putString(KEY_PRESET, options.preset.name)
@@ -19,7 +21,10 @@ class NodeConfigStore(context: Context) {
             .putBoolean(KEY_BLOCKS_ONLY, options.blocksonly)
             .putBoolean(KEY_TELEMETRY_CONSENT, options.telemetryConsent)
             .putBoolean(KEY_WIFI_ONLY, options.wifiOnlyPreference)
+            .putBoolean(KEY_USE_SNAPSHOT, options.useSnapshot)
             .apply()
+
+        currentConfig = options
     }
 
     fun load(): NodeConfigOptions {
@@ -27,7 +32,7 @@ class NodeConfigStore(context: Context) {
         val preset = runCatching { NodeSetupPreset.valueOf(presetName ?: "") }
             .getOrDefault(NodeSetupPreset.BALANCED)
 
-        return NodeConfigOptions(
+        val options = NodeConfigOptions(
             preset = preset,
             maxConnections = prefs.getInt(KEY_MAX_CONNECTIONS, defaultFor(preset).maxConnections),
             pruneTargetMb = prefs.getInt(KEY_PRUNE_MB, defaultFor(preset).pruneTargetMb),
@@ -35,10 +40,14 @@ class NodeConfigStore(context: Context) {
             blocksonly = prefs.getBoolean(KEY_BLOCKS_ONLY, false),
             telemetryConsent = prefs.getBoolean(KEY_TELEMETRY_CONSENT, false),
             wifiOnlyPreference = prefs.getBoolean(KEY_WIFI_ONLY, true),
+            useSnapshot = prefs.getBoolean(KEY_USE_SNAPSHOT, true),
         )
+
+        currentConfig = options
+        return options
     }
 
-    fun shouldUseSnapshot(): Boolean = prefs.getBoolean(KEY_USE_SNAPSHOT, true)
+    fun shouldUseSnapshot(): Boolean = (currentConfig ?: load()).useSnapshot
 
     fun defaultFor(preset: NodeSetupPreset): NodeConfigOptions {
         return when (preset) {
