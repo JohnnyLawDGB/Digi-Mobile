@@ -87,7 +87,6 @@ class NodeManager(
 
             val paths = bootstrapper.ensureBootstrap()
             lastNodePaths = paths
-            evaluateCliAvailability()
 
             if (configStore.shouldUseSnapshot()) {
                 updateState(
@@ -130,6 +129,8 @@ class NodeManager(
                     appendLog("Snapshot download failed, falling back to full sync.")
                 }
             }
+
+            evaluateCliAvailability()
 
             updateState(NodeState.DownloadingBinaries(progress = 100), "Downloading binaries (100%)…")
             updateState(NodeState.VerifyingBinaries, "Verifying binaries…")
