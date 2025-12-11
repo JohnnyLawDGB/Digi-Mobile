@@ -6,6 +6,8 @@ import java.io.BufferedInputStream
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
+import java.net.HttpURLConnection
+import java.net.URL
 import java.security.MessageDigest
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream
 import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream
@@ -21,14 +23,13 @@ class ChainstateBootstrapper(private val context: Context) {
         onLog: (String) -> Unit
     ): Boolean {
         datadir.mkdirs()
-        val externalSnapshot = context.getExternalFilesDir(null)?.let { File(it, SNAPSHOT_FILENAME) }
-        val snapshotFile = when {
-            externalSnapshot?.exists() == true -> externalSnapshot
-            else -> File(context.filesDir, SNAPSHOT_FILENAME)
-        }
+        val snapshotFile = getSnapshotFile()
 
         if (!snapshotFile.exists()) {
-            return true
+            val downloaded = runCatching { ensureSnapshotDownloaded(onProgress, onLog) }.getOrNull()
+            if (downloaded == null) {
+                return false
+            }
         }
 
         if (prefs.getBoolean(KEY_SNAPSHOT_APPLIED, false)) {
@@ -111,6 +112,85 @@ class ChainstateBootstrapper(private val context: Context) {
         prefs.edit().putBoolean(KEY_SNAPSHOT_APPLIED, false).apply()
     }
 
+    private suspend fun ensureSnapshotDownloaded(
+        onProgress: (Int) -> Unit,
+        onLog: (String) -> Unit
+    ): File? {
+        val snapshotFile = getSnapshotFile()
+
+        if (snapshotFile.exists()) {
+            val existingChecksum = computeSha256(snapshotFile)
+            if (existingChecksum.equals(SNAPSHOT_SHA256, ignoreCase = true)) {
+                return snapshotFile
+            } else {
+                onLog("Snapshot checksum mismatch, deleting file")
+                snapshotFile.delete()
+            }
+        }
+
+        val tempFile = File(snapshotFile.parentFile, "$SNAPSHOT_FILENAME.download")
+        if (!tempFile.parentFile.exists()) tempFile.parentFile.mkdirs()
+
+        onLog("Starting snapshot download...")
+        onProgress(0)
+
+        return runCatching {
+            val urlConnection = URL(SNAPSHOT_URL).openConnection() as HttpURLConnection
+            urlConnection.connectTimeout = 15_000
+            urlConnection.readTimeout = 15_000
+            urlConnection.connect()
+
+            val contentLength = urlConnection.contentLengthLong.takeIf { it > 0 } ?: -1L
+
+            BufferedInputStream(urlConnection.inputStream).use { input ->
+                FileOutputStream(tempFile).use { output ->
+                    val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                    var bytesRead = 0L
+                    var read = input.read(buffer)
+                    var lastProgress = -1
+                    while (read != -1) {
+                        output.write(buffer, 0, read)
+                        bytesRead += read
+                        if (contentLength > 0) {
+                            val percent = ((bytesRead * 100) / contentLength).toInt().coerceIn(0, 100)
+                            if (percent != lastProgress) {
+                                lastProgress = percent
+                                onProgress(percent)
+                            }
+                        }
+                        read = input.read(buffer)
+                    }
+                    onProgress(100)
+                }
+            }
+
+            onLog("Snapshot download complete")
+
+            val checksum = computeSha256(tempFile)
+            if (!checksum.equals(SNAPSHOT_SHA256, ignoreCase = true)) {
+                onLog("Snapshot checksum mismatch, deleting file")
+                tempFile.delete()
+                null
+            } else if (tempFile.renameTo(snapshotFile)) {
+                snapshotFile
+            } else {
+                tempFile.copyTo(snapshotFile, overwrite = true)
+                tempFile.delete()
+                snapshotFile
+            }
+        }.getOrElse {
+            onLog("Failed to download snapshot: ${it.message}")
+            tempFile.delete()
+            null
+        }
+    }
+
+    private fun getSnapshotFile(): File {
+        val dir = File(context.filesDir, "bootstrap")
+        if (!dir.exists()) dir.mkdirs()
+        return File(dir, SNAPSHOT_FILENAME)
+    }
+
     private fun computeSha256(file: File): String {
         val digest = MessageDigest.getInstance("SHA-256")
         FileInputStream(file).use { input ->
@@ -136,10 +216,14 @@ class ChainstateBootstrapper(private val context: Context) {
     }
 
     companion object {
-        const val SNAPSHOT_FILENAME = "dgb-chainstate-mainnet-h22595645-8.26.tar.gz"
-        const val SNAPSHOT_SHA256 = "c1e12e9f0cdd2dbd04b6b6ca68a0d8f8e3c1a9b8ed54f05c9b4721517972ed85"
-        const val SNAPSHOT_HEIGHT: Long = 22_595_645L
-        const val SNAPSHOT_HASH = "00000000000000001310a0340b212b3c8e2d7c5e3f21a2c0c0e2f6d8d7e9a1b2"
+        const val SNAPSHOT_URL: String =
+            "https://github.com/JohnnyLawDGB/Digi-Mobile/releases/download/bootstrap-8.26-mainnet-h22595645/dgb-chainstate-mainnet-h22595645-8.26.tar.gz"
+
+        const val SNAPSHOT_FILENAME: String = "dgb-chainstate-mainnet-h22595645-8.26.tar.gz"
+        const val SNAPSHOT_SHA256 = "d6a1ca615c1e4fdb4d355ad82bb6f8bb68663613f7224c4f9f825d3db16d831e"
+        const val SNAPSHOT_HEIGHT: Long = 22595645L
+        const val SNAPSHOT_HASH: String =
+            "d6a1ca615c1e4fdb4d355ad82bb6f8bb68663613f7224c4f9f825d3db16d831e"
 
         private const val PREFS_NAME = "digimobile_prefs"
         private const val KEY_SNAPSHOT_APPLIED = "snapshot_applied"
