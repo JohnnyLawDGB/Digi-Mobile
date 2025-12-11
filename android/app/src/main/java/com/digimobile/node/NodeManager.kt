@@ -37,6 +37,7 @@ class NodeManager(
         private set
 
     private var lastSyncProgress: SyncProgress = SyncProgress(fraction = 0f, isInitialDownload = true)
+    private var lastSyncSample: SyncSample? = null
 
     private var cliWarningLogged: Boolean = false
     private var cliSyncErrorLogged: Boolean = false
@@ -283,6 +284,22 @@ class NodeManager(
             lastSyncProgress = syncProgress
             val peerCount = blockchainInfo?.connections ?: networkInfo?.connections
 
+            val now = System.currentTimeMillis()
+            val downloadRate = if (currentHeight != null) {
+                lastSyncSample?.let { sample ->
+                    val heightDelta = currentHeight - sample.height
+                    val elapsedSeconds = (now - sample.timestampMs) / 1000.0
+                    if (heightDelta >= 0 && elapsedSeconds > 0) {
+                        heightDelta / elapsedSeconds
+                    } else {
+                        null
+                    }
+                }
+            } else {
+                null
+            }
+            lastSyncSample = currentHeight?.let { SyncSample(it, now) }
+
             val isSynced = blockchainInfo?.let { info ->
                 syncProgress.fraction.toDouble() >= READY_THRESHOLD_FRACTION ||
                     ((info.headers ?: 0) - (info.blocks ?: 0)) <= SYNC_TOLERANCE ||
@@ -292,13 +309,13 @@ class NodeManager(
             val nextState = if (isSynced) {
                 NodeState.Ready
             } else {
-                NodeState.Syncing(currentHeight, headerHeight, syncProgress, peerCount)
+                NodeState.Syncing(currentHeight, headerHeight, syncProgress, peerCount, downloadRate)
             }
 
             val syncLogMessage = when {
                 isSynced -> "Node is fully synced and ready"
                 !cliAvailable && blockchainInfo == null -> "Node is running; waiting for sync details (digibyte-cli not available in this build)."
-                else -> formatSyncLog(currentHeight, headerHeight, syncProgress, peerCount)
+                else -> formatSyncLog(currentHeight, headerHeight, syncProgress, peerCount, downloadRate)
             }
 
             val currentState = _nodeState.value
@@ -448,7 +465,8 @@ class NodeManager(
         currentHeight: Long?,
         headerHeight: Long?,
         progress: SyncProgress?,
-        peerCount: Int?
+        peerCount: Int?,
+        downloadRate: Double?
     ): String {
         val progressText = progress?.let { "${it.toProgressInt()}%" } ?: "progress unknown"
         val heightText = if (currentHeight != null && headerHeight != null) {
@@ -457,7 +475,8 @@ class NodeManager(
             "height unknown"
         }
         val peersText = peerCount?.let { " with $it peers" } ?: ""
-        return "Syncing: height $heightText (~$progressText$peersText)"
+        val rateText = downloadRate?.let { " at ${String.format("%.2f", it)} blk/s" } ?: ""
+        return "Syncing: height $heightText (~$progressText$peersText$rateText)"
     }
 
     private fun evaluateCliAvailability(): Boolean {
@@ -504,6 +523,11 @@ class NodeManager(
 
     private data class NetworkInfo(
         val connections: Int?,
+    )
+
+    private data class SyncSample(
+        val height: Long,
+        val timestampMs: Long,
     )
 
     data class CliResult(

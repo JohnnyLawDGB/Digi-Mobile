@@ -141,7 +141,8 @@ class NodeService : Service() {
                 ""
             }
             val peersText = this.peerCount?.let { " with $it peers" } ?: ""
-            "Syncing ($progressText)$heightText$peersText"
+            val rateText = this.downloadRate?.let { " at ${String.format("%.2f", it)} blk/s" } ?: ""
+            "Syncing ($progressText)$heightText$peersText$rateText"
         }
         NodeState.Ready -> "Digi-Mobile node running"
         is NodeState.Error -> "Node error: ${this.message}"
