@@ -1,7 +1,6 @@
 package com.digimobile.app
 
 import android.content.Intent
-import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -39,12 +38,11 @@ class MainActivity : AppCompatActivity() {
 
         if (bootstrapper.isFirstRun()) {
             binding.textSteps.text =
-                "First launch detected. Tap the button to create private config/data/log folders and start the node."
+                "First launch detected. Use the setup wizard to choose pruning/storage, peers, and bandwidth preferences."
         }
 
         binding.buttonStartNode.setOnClickListener {
-            startNodeFlow()
-            openNodeSetupActivity()
+            openSetupWizard()
         }
         binding.buttonDetails.setOnClickListener { openNodeSetupActivity() }
         binding.textStatus.setOnClickListener {
@@ -57,16 +55,6 @@ class MainActivity : AppCompatActivity() {
         binding.buttonOpenConsole.setOnClickListener { openCoreConsoleActivity() }
 
         observeNodeState()
-    }
-
-    private fun startNodeFlow() {
-        val intent = Intent(this@MainActivity, NodeService::class.java)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(intent)
-        } else {
-            @Suppress("DEPRECATION")
-            startService(intent)
-        }
     }
 
     private fun observeNodeState() {
@@ -137,6 +125,11 @@ class MainActivity : AppCompatActivity() {
 
     private fun openCoreConsoleActivity() {
         val intent = Intent(this, CoreConsoleActivity::class.java)
+        startActivity(intent)
+    }
+
+    private fun openSetupWizard() {
+        val intent = Intent(this, SetupWizardActivity::class.java)
         startActivity(intent)
     }
 }

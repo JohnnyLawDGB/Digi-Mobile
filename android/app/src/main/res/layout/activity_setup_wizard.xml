@@ -1,0 +1,327 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="16dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/textTitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Digi-Mobile setup"
+            android:textAppearance="@style/TextAppearance.AppCompat.Large"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/textSubtitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="Answer a few questions so we can tune the DigiByte node for your device." />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginTop="12dp"
+            android:background="#E6F0FF"
+            android:padding="12dp">
+
+            <TextView
+                android:id="@+id/textDeviceMemory"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Detected RAM: --"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/textDeviceStorage"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="Storage: --"
+                android:textAppearance="@style/TextAppearance.AppCompat.Small" />
+
+            <TextView
+                android:id="@+id/textWifiHint"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="Heavy download ahead. Please start initial sync on Wi‑Fi to avoid data overages." />
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="Choose a starting profile" />
+
+        <RadioGroup
+            android:id="@+id/radioPreset"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginTop="8dp">
+
+            <LinearLayout
+                android:id="@+id/cardPresetLight"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="#F5F5F5"
+                android:padding="10dp"
+                android:layout_marginBottom="8dp">
+                <RadioButton
+                    android:id="@+id/radioLight"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Light (3GB prune, 8 peers)" />
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Lowest footprint. Enables blocksonly mode to save bandwidth." />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/cardPresetBalanced"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="#F5F5F5"
+                android:padding="10dp"
+                android:layout_marginBottom="8dp">
+                <RadioButton
+                    android:id="@+id/radioBalanced"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:checked="true"
+                    android:text="Balanced (4GB prune, 12 peers)" />
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Suggested for most phones with at least 4GB RAM." />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/cardPresetFullish"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="#F5F5F5"
+                android:padding="10dp"
+                android:layout_marginBottom="8dp">
+                <RadioButton
+                    android:id="@+id/radioFullish"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Full-ish (8GB prune, 16 peers)" />
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Higher connectivity for stronger devices and Wi‑Fi" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/cardPresetCustom"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="#F5F5F5"
+                android:padding="10dp">
+                <RadioButton
+                    android:id="@+id/radioCustom"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Custom" />
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Tune peers, pruning, cache, and bandwidth options." />
+            </LinearLayout>
+        </RadioGroup>
+
+        <TextView
+            android:id="@+id/textCustomNotice"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Custom settings override the preset values."
+            android:visibility="gone" />
+
+        <LinearLayout
+            android:id="@+id/layoutCustomControls"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginTop="8dp"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Peer connections" />
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+                <SeekBar
+                    android:id="@+id/seekPeers"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1" />
+                <TextView
+                    android:id="@+id/textPeersValue"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:text="8 peers" />
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="Pruned storage target" />
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+                <SeekBar
+                    android:id="@+id/seekPrune"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1" />
+                <TextView
+                    android:id="@+id/textPruneValue"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:text="3 GB" />
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="Database cache" />
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+                <SeekBar
+                    android:id="@+id/seekDbcache"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1" />
+                <TextView
+                    android:id="@+id/textDbcacheValue"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:text="128 MB" />
+            </LinearLayout>
+
+            <Switch
+                android:id="@+id/switchBlocksOnly"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="Blocksonly mode (minimize data usage)" />
+
+            <Switch
+                android:id="@+id/switchWifiOnly"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="Prefer Wi‑Fi for sync" />
+            <TextView
+                android:id="@+id/textWifiWarning"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:text="Cellular may be paused or limited while syncing."
+                android:textAppearance="@style/TextAppearance.AppCompat.Small"
+                android:textColor="@android:color/holo_red_dark"
+                android:visibility="gone" />
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="Telemetry & consent" />
+        <CheckBox
+            android:id="@+id/checkboxTelemetry"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="I consent to showing my device stats to help recommend settings"
+            android:layout_marginTop="4dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="Wallet (coming soon)" />
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="#F5F5F5"
+            android:padding="10dp">
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Wallet creation and import will be added in a future release." />
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="8dp">
+                <Button
+                    android:id="@+id/buttonWalletCreate"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Create wallet"
+                    android:enabled="false" />
+                <Button
+                    android:id="@+id/buttonWalletImport"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="8dp"
+                    android:text="Import wallet"
+                    android:enabled="false" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="20dp">
+            <Button
+                android:id="@+id/buttonBack"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Back" />
+            <Button
+                android:id="@+id/buttonBegin"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="8dp"
+                android:text="Save and start" />
+        </LinearLayout>
+
+    </LinearLayout>
+</ScrollView>

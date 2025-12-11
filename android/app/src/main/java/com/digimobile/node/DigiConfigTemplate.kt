@@ -1,6 +1,7 @@
 package com.digimobile.node
 
 import android.util.Log
+import com.digimobile.node.NodeConfigOptions
 import java.io.File
 import java.util.UUID
 
@@ -16,60 +17,44 @@ object DigiConfigTemplate {
     private const val TAG = "DigiConfigTemplate"
     private const val RPC_USER_DEFAULT = "digiuser"
 
-    fun ensureConfig(datadir: File): RpcCredentials {
+    fun ensureConfig(datadir: File, options: NodeConfigOptions): RpcCredentials {
         if (!datadir.exists()) {
             datadir.mkdirs()
         }
         val configFile = File(datadir, "digibyte.conf")
-        if (!configFile.exists()) {
-            val credentials = RpcCredentials(RPC_USER_DEFAULT, generatePassword())
-            configFile.writeText(buildTemplate(credentials))
-            return credentials
-        }
-
         val content = runCatching { configFile.readText() }.getOrElse { error ->
             Log.w(TAG, "Failed to read existing config: ${error.message}")
             ""
         }
         val parsedUser = parseValue(content, "rpcuser") ?: RPC_USER_DEFAULT
         val parsedPassword = parseValue(content, "rpcpassword")
-
-        if (parsedPassword != null && content.contains("rpcuser=")) {
-            return RpcCredentials(parsedUser, parsedPassword)
-        }
-
         val credentials = RpcCredentials(parsedUser, parsedPassword ?: generatePassword())
-        val builder = StringBuilder(content.trimEnd())
-        if (!content.endsWith("\n")) {
-            builder.append("\n")
-        }
-        if (!content.contains("rpcuser=")) {
-            builder.append("rpcuser=${credentials.user}\n")
-        }
-        if (!content.contains("rpcpassword=")) {
-            builder.append("rpcpassword=${credentials.password}\n")
-        }
-        configFile.writeText(builder.toString())
+
+        configFile.writeText(buildTemplate(credentials, options))
         return credentials
     }
 
-    private fun buildTemplate(credentials: RpcCredentials): String {
-        return """
-            # DigiByte mobile default configuration
-            server=1
-            listen=1
-            dns=1
-            discover=1
-            maxconnections=8
-            prune=2048
-            dbcache=128
-            txindex=0
-
-            rpcuser=${credentials.user}
-            rpcpassword=${credentials.password}
-            rpcallowip=127.0.0.1
-            rpcbind=127.0.0.1
-        """.trimIndent() + "\n"
+    private fun buildTemplate(credentials: RpcCredentials, options: NodeConfigOptions): String {
+        val builder = StringBuilder()
+        builder.appendLine("# DigiByte mobile configuration")
+        builder.appendLine("# Profile: ${options.preset}")
+        builder.appendLine("server=1")
+        builder.appendLine("listen=1")
+        builder.appendLine("dns=1")
+        builder.appendLine("discover=1")
+        builder.appendLine("maxconnections=${options.maxConnections}")
+        builder.appendLine("prune=${options.pruneTargetMb}")
+        builder.appendLine("dbcache=${options.dbCacheMb}")
+        builder.appendLine("txindex=0")
+        if (options.blocksonly) {
+            builder.appendLine("blocksonly=1")
+        }
+        builder.appendLine()
+        builder.appendLine("rpcuser=${credentials.user}")
+        builder.appendLine("rpcpassword=${credentials.password}")
+        builder.appendLine("rpcallowip=127.0.0.1")
+        builder.appendLine("rpcbind=127.0.0.1")
+        return builder.toString()
     }
 
     private fun parseValue(contents: String, key: String): String? {
