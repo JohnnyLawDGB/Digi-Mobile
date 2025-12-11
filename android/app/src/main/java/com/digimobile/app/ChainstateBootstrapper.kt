@@ -105,6 +105,12 @@ class ChainstateBootstrapper(private val context: Context) {
         }.getOrElse { false }
     }
 
+    fun isSnapshotApplied(): Boolean = prefs.getBoolean(KEY_SNAPSHOT_APPLIED, false)
+
+    fun resetSnapshotFlag() {
+        prefs.edit().putBoolean(KEY_SNAPSHOT_APPLIED, false).apply()
+    }
+
     private fun computeSha256(file: File): String {
         val digest = MessageDigest.getInstance("SHA-256")
         FileInputStream(file).use { input ->
