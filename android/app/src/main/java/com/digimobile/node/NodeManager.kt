@@ -97,7 +97,7 @@ class NodeManager(
                     onProgress = { percent ->
                         updateState(
                             NodeState.ApplyingSnapshot(SnapshotPhase.Download, percent),
-                            "Downloading snapshot (${percent}%)"
+                            "Downloading snapshot ($percent%)"
                         )
                     },
                     onLog = { msg -> appendLog(msg) }
