@@ -131,6 +131,7 @@ class NodeService : Service() {
         NodeState.VerifyingBinaries -> "Verifying Digi-Mobile binaries..."
         NodeState.WritingConfig -> "Writing node configuration..."
         NodeState.StartingDaemon -> "Starting DigiByte daemon..."
+        is NodeState.ApplyingSnapshot -> this.reason
         is NodeState.StartingUp -> this.reason
         NodeState.ConnectingToPeers -> "Connecting to DigiByte peers..."
         is NodeState.Syncing -> {

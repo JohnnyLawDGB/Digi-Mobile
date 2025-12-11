@@ -82,6 +82,7 @@ class MainActivity : AppCompatActivity() {
             NodeState.WritingConfig,
             NodeState.StartingDaemon,
             is NodeState.StartingUp,
+            is NodeState.ApplyingSnapshot,
             NodeState.ConnectingToPeers,
             is NodeState.Syncing -> {
                 binding.buttonStartNode.isEnabled = false

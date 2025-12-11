@@ -138,7 +138,7 @@ class ChainstateBootstrapper(private val context: Context) {
     companion object {
         const val SNAPSHOT_FILENAME = "dgb-chainstate-mainnet-h22595645-8.26.tar.gz"
         const val SNAPSHOT_SHA256 = "c1e12e9f0cdd2dbd04b6b6ca68a0d8f8e3c1a9b8ed54f05c9b4721517972ed85"
-        const val SNAPSHOT_HEIGHT = 22_595_645
+        const val SNAPSHOT_HEIGHT: Long = 22_595_645L
         const val SNAPSHOT_HASH = "00000000000000001310a0340b212b3c8e2d7c5e3f21a2c0c0e2f6d8d7e9a1b2"
 
         private const val PREFS_NAME = "digimobile_prefs"
