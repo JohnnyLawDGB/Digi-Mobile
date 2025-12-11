@@ -159,19 +159,15 @@ class NodeManager(
                 return@launch
             }
 
-            // If snapshot was applied this run
-            if (chainstateBootstrapper.isSnapshotApplied()) {
+            if (configStore.shouldUseSnapshot()) {
                 val ok = verifySnapshotHeader(
                     ChainstateBootstrapper.SNAPSHOT_HEIGHT,
                     ChainstateBootstrapper.SNAPSHOT_HASH
                 )
-                if (!ok) {
-                    appendLog("Snapshot header mismatch; clearing chainstate and falling back to full sync.")
-                    // Remove the bad chainstate and reset flag
-                    File(paths.dataDir, "chainstate").deleteRecursively()
-                    chainstateBootstrapper.resetSnapshotFlag()
-                    _nodeState.value = NodeState.Error("Snapshot verification failed; restart to perform full sync")
-                    return@launch
+                if (ok) {
+                    appendLog("Snapshot header verified at height ${ChainstateBootstrapper.SNAPSHOT_HEIGHT}.")
+                } else {
+                    appendLog("Snapshot header did not verify; future builds may disable snapshot use in this case.")
                 }
             }
 
@@ -482,13 +478,21 @@ class NodeManager(
         }
     }
 
-    private suspend fun verifySnapshotHeader(height: Long, expectedHash: String): Boolean {
+    private suspend fun verifySnapshotHeader(
+        height: Long,
+        expectedHash: String
+    ): Boolean {
         val result = runCliCommand(listOf("getblockhash", height.toString()))
         if (result.exitCode != 0) {
-            appendLog("Snapshot verification failed: ${result.stderr.ifEmpty { result.stdout }}")
+            appendLog("Snapshot header verification failed: ${result.stderr.ifEmpty { result.stdout }}")
             return false
         }
-        return result.stdout.trim().equals(expectedHash, ignoreCase = true)
+        val actual = result.stdout.trim()
+        val ok = actual.equals(expectedHash, ignoreCase = true)
+        if (!ok) {
+            appendLog("Snapshot header mismatch at $height: expected=$expectedHash, got=$actual")
+        }
+        return ok
     }
 
     private fun formatSyncLog(
