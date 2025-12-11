@@ -160,6 +160,7 @@ class SetupWizardActivity : AppCompatActivity() {
             binding.switchWifiOnly.isChecked = options.wifiOnlyPreference
         }
         binding.checkboxTelemetry.isChecked = options.telemetryConsent
+        binding.checkboxUseSnapshot.isChecked = options.useSnapshot
     }
 
     private fun setSeekValue(seekBar: SeekBar, target: Int, min: Int, step: Int = 1) {
@@ -199,6 +200,7 @@ class SetupWizardActivity : AppCompatActivity() {
             blocksonly = binding.switchBlocksOnly.isChecked,
             telemetryConsent = binding.checkboxTelemetry.isChecked,
             wifiOnlyPreference = binding.switchWifiOnly.isChecked,
+            useSnapshot = binding.checkboxUseSnapshot.isChecked,
         )
     }
 

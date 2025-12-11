@@ -257,6 +257,20 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
+            android:text="Bootstrap sync"
+            android:textStyle="bold" />
+
+        <CheckBox
+            android:id="@+id/checkboxUseSnapshot"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:checked="true"
+            android:text="Use chainstate snapshot to speed up first sync (downloads from GitHub release)" />
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
             android:text="Telemetry &amp; consent" />
         <CheckBox
             android:id="@+id/checkboxTelemetry"
