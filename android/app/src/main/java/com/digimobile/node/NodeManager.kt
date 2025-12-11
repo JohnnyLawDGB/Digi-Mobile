@@ -116,15 +116,19 @@ class NodeManager(
                         NodeState.ApplyingSnapshot(phase = SnapshotPhase.Extract, progress = 0),
                         "Extracting snapshot..."
                     )
-                    val extractedOk = chainstateBootstrapper.extractSnapshotInto(paths.dataDir) { percent ->
-                        updateState(
-                            NodeState.ApplyingSnapshot(
-                                phase = SnapshotPhase.Extract,
-                                progress = percent
-                            ),
-                            "Extracting snapshot ($percent%)"
-                        )
-                    }
+                    val extractedOk = chainstateBootstrapper.extractSnapshotInto(
+                        datadir = paths.dataDir,
+                        onProgress = { percent ->
+                            updateState(
+                                NodeState.ApplyingSnapshot(
+                                    phase = SnapshotPhase.Extract,
+                                    progress = percent
+                                ),
+                                "Extracting snapshot ($percent%)"
+                            )
+                        },
+                        onLog = { message -> appendLog(message) }
+                    )
 
                     if (!extractedOk) {
                         appendLog("Snapshot extraction failed, falling back to full sync.")
