@@ -60,3 +60,28 @@ See [`docs/CORE-VERSIONING.md`](docs/CORE-VERSIONING.md) for version pin details
 Issues and roadmap items are tracked on [GitHub Issues](https://github.com/JohnnyLawDGB/Digi-Mobile/issues).
 
 See [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) for contribution guidelines and good starting areas.
+
+## Verifying Digi-Mobile chainstate bootstraps
+
+1. Import the Digi-Mobile maintainer key (fingerprint `C4C5 6804 467D 8979 A554 8E5E 6B89 2882 E6A4 C991`):
+
+   ```bash
+   curl -O https://raw.githubusercontent.com/JohnnyLawDGB/Digi-Mobile/main/keys/johnnylawdgb.asc
+   gpg --import johnnylawdgb.asc
+   ```
+
+2. Verify the signature on the checksum file that accompanies the chainstate archive:
+
+   ```bash
+   gpg --verify dgb-chainstate-mainnet-h22595645-8.26.tar.gz.sha256.asc \
+               dgb-chainstate-mainnet-h22595645-8.26.tar.gz.sha256
+   ```
+
+3. Verify the tarball checksum matches the signed checksum:
+
+   ```bash
+   sha256sum dgb-chainstate-mainnet-h22595645-8.26.tar.gz
+   cat dgb-chainstate-mainnet-h22595645-8.26.tar.gz.sha256
+   ```
+
+4. Optional: confirm the chain header at height **22595645** equals `d6a1ca615c1e4fdb4d355ad82bb6f8bb68663613f7224c4f9f825d3db16d831e`.
