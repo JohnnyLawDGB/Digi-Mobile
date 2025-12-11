@@ -3,6 +3,7 @@ package com.digimobile.node
 import android.content.Context
 import com.digimobile.app.NodeBootstrapper
 import com.digimobile.app.ChainstateBootstrapper
+import com.digimobile.app.NodeConfigStore
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -26,6 +27,7 @@ class NodeManager(
     private val scope: CoroutineScope
 ) {
 
+    private val configStore = NodeConfigStore(context)
     private val chainstateBootstrapper = ChainstateBootstrapper(context)
 
     private val _nodeState = MutableStateFlow<NodeState>(NodeState.Idle)
@@ -87,19 +89,46 @@ class NodeManager(
             lastNodePaths = paths
             evaluateCliAvailability()
 
-            if (chainstateBootstrapper.extractSnapshotIfNeeded(
-                    paths.dataDir,
+            if (configStore.shouldUseSnapshot()) {
+                updateState(
+                    NodeState.ApplyingSnapshot(SnapshotPhase.Download, null),
+                    "Downloading snapshot..."
+                )
+                val snapshotFile = chainstateBootstrapper.ensureSnapshotDownloaded(
                     onProgress = { percent ->
                         updateState(
-                            NodeState.ApplyingSnapshot(SnapshotPhase.Extract, percent),
-                            "Applying chainstate snapshot (${percent}%)"
+                            NodeState.ApplyingSnapshot(SnapshotPhase.Download, percent),
+                            "Downloading snapshot (${percent}%)"
                         )
                     },
                     onLog = { msg -> appendLog(msg) }
-                ).not()
-            ) {
-                _nodeState.value = NodeState.Error("Failed to apply chainstate snapshot")
-                return@launch
+                )
+
+                if (snapshotFile != null) {
+                    updateState(
+                        NodeState.ApplyingSnapshot(SnapshotPhase.Verify, null),
+                        "Verifying snapshot..."
+                    )
+
+                    updateState(
+                        NodeState.ApplyingSnapshot(SnapshotPhase.Extract, 0),
+                        "Extracting snapshot..."
+                    )
+                    val extractedOk = chainstateBootstrapper.extractSnapshotInto(paths.dataDir) { percent ->
+                        updateState(
+                            NodeState.ApplyingSnapshot(SnapshotPhase.Extract, percent),
+                            "Extracting snapshot (${percent}%)"
+                        )
+                    }
+
+                    if (!extractedOk) {
+                        appendLog("Snapshot extraction failed, falling back to full sync.")
+                    } else {
+                        appendLog("Snapshot applied successfully at height ${ChainstateBootstrapper.SNAPSHOT_HEIGHT}.")
+                    }
+                } else {
+                    appendLog("Snapshot download failed, falling back to full sync.")
+                }
             }
 
             updateState(NodeState.DownloadingBinaries(progress = 100), "Downloading binaries (100%)…")

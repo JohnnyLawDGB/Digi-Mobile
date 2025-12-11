@@ -38,6 +38,8 @@ class NodeConfigStore(context: Context) {
         )
     }
 
+    fun shouldUseSnapshot(): Boolean = prefs.getBoolean(KEY_USE_SNAPSHOT, true)
+
     fun defaultFor(preset: NodeSetupPreset): NodeConfigOptions {
         return when (preset) {
             NodeSetupPreset.LIGHT -> NodeConfigOptions(
@@ -77,5 +79,6 @@ class NodeConfigStore(context: Context) {
         private const val KEY_BLOCKS_ONLY = "config_blocksonly"
         private const val KEY_TELEMETRY_CONSENT = "telemetry_consent"
         private const val KEY_WIFI_ONLY = "wifi_only"
+        private const val KEY_USE_SNAPSHOT = "use_snapshot"
     }
 }
