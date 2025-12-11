@@ -17,7 +17,7 @@ class ChainstateBootstrapper(private val context: Context) {
     private val prefs: SharedPreferences =
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
-    fun extractSnapshotIfNeeded(
+    suspend fun extractSnapshotIfNeeded(
         datadir: File,
         onProgress: (Int) -> Unit,
         onLog: (String) -> Unit
@@ -42,7 +42,7 @@ class ChainstateBootstrapper(private val context: Context) {
     }
 
     suspend fun ensureSnapshotDownloaded(
-        onProgress: (Int) -> Unit,
+        onProgress: (Int) -> Unit = {},
         onLog: (String) -> Unit
     ): File? {
         val snapshotFile = getSnapshotFile()
