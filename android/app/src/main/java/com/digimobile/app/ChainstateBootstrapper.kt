@@ -139,11 +139,6 @@ class ChainstateBootstrapper(private val context: Context) {
             return false
         }
 
-        val chainstateDir = File(datadir, "chainstate")
-        if (chainstateDir.exists()) {
-            deleteRecursively(chainstateDir)
-        }
-
         val totalSize = snapshotFile.length().coerceAtLeast(1L)
         var bytesRead = 0L
         var lastProgress = -1
@@ -156,46 +151,83 @@ class ChainstateBootstrapper(private val context: Context) {
             }
         }
 
+        val tempRoot = File(context.cacheDir, "snapshot_extract_${System.currentTimeMillis()}")
+
         return runCatching {
-            FileInputStream(snapshotFile).use { fis ->
-                GzipCompressorInputStream(BufferedInputStream(fis)).use { gzip ->
-                    TarArchiveInputStream(gzip).use { tar ->
-                        var entry = tar.nextTarEntry
-                        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-                        while (entry != null) {
-                            val name = entry.name
-                            if (name.startsWith("chainstate/")) {
-                                val outputFile = File(datadir, name)
-                                if (entry.isDirectory) {
-                                    outputFile.mkdirs()
-                                } else {
-                                    outputFile.parentFile?.mkdirs()
-                                    FileOutputStream(outputFile).use { output ->
-                                        var read = tar.read(buffer)
-                                        while (read != -1) {
-                                            output.write(buffer, 0, read)
-                                            bytesRead += read
-                                            updateProgress()
-                                            read = tar.read(buffer)
+            tempRoot.mkdirs()
+
+            try {
+                FileInputStream(snapshotFile).use { fis ->
+                    GzipCompressorInputStream(BufferedInputStream(fis)).use { gzip ->
+                        TarArchiveInputStream(gzip).use { tar ->
+                            var entry = tar.nextTarEntry
+                            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                            while (entry != null) {
+                                val relativePath = entry.name
+                                    .trimStart('/')
+                                    .split('/')
+                                    .drop(1)
+                                    .joinToString("/")
+
+                                if (relativePath.isNotEmpty()) {
+                                    val outputFile = File(tempRoot, relativePath)
+                                    if (entry.isDirectory) {
+                                        outputFile.mkdirs()
+                                    } else {
+                                        outputFile.parentFile?.mkdirs()
+                                        FileOutputStream(outputFile).use { output ->
+                                            var read = tar.read(buffer)
+                                            while (read != -1) {
+                                                output.write(buffer, 0, read)
+                                                bytesRead += read
+                                                updateProgress()
+                                                read = tar.read(buffer)
+                                            }
                                         }
                                     }
+                                } else {
+                                    var read = tar.read(buffer)
+                                    while (read != -1) {
+                                        bytesRead += read
+                                        updateProgress()
+                                        read = tar.read(buffer)
+                                    }
                                 }
-                            } else {
-                                var read = tar.read(buffer)
-                                while (read != -1) {
-                                    bytesRead += read
-                                    updateProgress()
-                                    read = tar.read(buffer)
-                                }
+
+                                entry = tar.nextTarEntry
                             }
-                            entry = tar.nextTarEntry
                         }
                     }
                 }
+
+                val chainstateSource = File(tempRoot, "chainstate")
+                val blocksSource = File(tempRoot, "blocks")
+
+                if (!chainstateSource.exists() || !blocksSource.exists()) {
+                    onLog("Snapshot is missing required directories.")
+                    return false
+                }
+
+                val chainstateTarget = File(datadir, "chainstate")
+                val blocksTarget = File(datadir, "blocks")
+
+                if (chainstateTarget.exists()) deleteRecursively(chainstateTarget)
+                if (blocksTarget.exists()) deleteRecursively(blocksTarget)
+
+                chainstateTarget.parentFile?.mkdirs()
+                blocksTarget.parentFile?.mkdirs()
+
+                moveOrCopy(chainstateSource, chainstateTarget)
+                moveOrCopy(blocksSource, blocksTarget)
+
+                updateProgress()
+                prefs.edit().putBoolean(KEY_SNAPSHOT_APPLIED, true).apply()
+                true
+            } finally {
+                if (tempRoot.exists()) {
+                    deleteRecursively(tempRoot)
+                }
             }
-            updateProgress()
-            prefs.edit().putBoolean(KEY_SNAPSHOT_APPLIED, true).apply()
-            true
         }.onFailure { error ->
             onLog("Failed to extract snapshot: ${error.message}")
         }.getOrElse { false }
@@ -231,15 +263,21 @@ class ChainstateBootstrapper(private val context: Context) {
         target.delete()
     }
 
+    private fun moveOrCopy(source: File, target: File) {
+        if (source.renameTo(target)) return
+        source.copyRecursively(target, overwrite = true)
+        deleteRecursively(source)
+    }
+
     companion object {
         const val SNAPSHOT_URL: String =
-            "https://github.com/JohnnyLawDGB/Digi-Mobile/releases/download/bootstrap-8.26-mainnet-h22595645/dgb-chainstate-mainnet-h22595645-8.26.tar.gz"
+            "https://github.com/JohnnyLawDGB/Digi-Mobile/releases/download/bootstrap-8.26-mainnet-h22595645/dgb-chainstate-mainnet-h22595645-8.26-full.tar.gz"
 
-        const val SNAPSHOT_FILENAME: String = "dgb-chainstate-mainnet-h22595645-8.26.tar.gz"
-        const val SNAPSHOT_SHA256 = "d6a1ca615c1e4fdb4d355ad82bb6f8bb68663613f7224c4f9f825d3db16d831e"
+        const val SNAPSHOT_FILENAME: String = "dgb-chainstate-mainnet-h22595645-8.26-full.tar.gz"
+        const val SNAPSHOT_SHA256 = "c9ee30e68b378a7919aae79eb8ff21725dab382cdac573700efd37e0f92a8c8d"
         const val SNAPSHOT_HEIGHT: Long = 22595645L
         const val SNAPSHOT_HASH: String =
-            "d6a1ca615c1e4fdb4d355ad82bb6f8bb68663613f7224c4f9f825d3db16d831e"
+            "c9ee30e68b378a7919aae79eb8ff21725dab382cdac573700efd37e0f92a8c8d"
 
         private const val PREFS_NAME = "digimobile_prefs"
         private const val KEY_SNAPSHOT_APPLIED = "snapshot_applied"
